@@ -1,0 +1,36 @@
+{
+    "shell": {
+        "type": "file",
+        "config": "/dev/stdin"
+    },
+    "publish": [],
+    "commands": {
+        "play": {
+            "type": "lavc"
+        },
+        "testcard": {
+            "type": "testcard"
+        }
+    },
+    "pcmbuffer": {
+        "format": "s16",
+        "samplerate": 44100,
+        "channels": "stereo",
+        "duration": 5.0
+    },
+    "outputs": [
+        {
+            "type": "oggvorbis",
+            "buffer": 65536,
+            "config": {
+                "bitrate": 192000,
+                "minbitrate": 16000
+            },
+            "broca": [
+                {
+                    "type": "discard"
+                }
+            ]
+        }
+    ]
+}

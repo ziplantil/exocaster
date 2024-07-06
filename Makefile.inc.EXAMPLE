@@ -1,0 +1,39 @@
+
+# All _ENABLE settings are either 0 (disabled) or 1 (enabled)
+# _CXXFLAGS are passed to the C++ compiler
+# _LDLIBS are passed to the linker
+
+# Libraries: libavcodec, for lavc decoder
+LIBAVCODEC_ENABLE=1
+LIBAVCODEC_CXXFLAGS=
+LIBAVCODEC_LDLIBS=-lavcodec -lavformat -lavutil -lavfilter -lswresample
+
+# Libraries: libvorbis, for oggvorbis encoder
+LIBVORBIS_ENABLE=1
+LIBVORBIS_CXXFLAGS=
+LIBVORBIS_LDLIBS=-lvorbis -lvorbisenc -logg
+
+# Libraries: libflac, for oggflac encoder
+LIBFLAC_ENABLE=0
+LIBFLAC_CXXFLAGS=
+LIBFLAC_LDLIBS=-lflac -logg
+
+# Libraries: libshout, for shout broca
+SHOUT_ENABLE=0
+SHOUT_CXXFLAGS=
+SHOUT_LDLIBS=-lshout
+
+# Libraries: curl, for httpget queue and httppost publisher
+CURL_ENABLE=0
+CURL_CXXFLAGS=
+CURL_LDLIBS=-lcurl
+
+# Libraries: zeromq, for zeromq queue and zeromq publisher
+ZEROMQ_ENABLE=0
+ZEROMQ_CXXFLAGS=
+ZEROMQ_LDLIBS=-lzmq
+
+# Libraries: portaudio, for playback broca
+PORTAUDIO_ENABLE=0
+PORTAUDIO_CXXFLAGS=
+PORTAUDIO_LDLIBS=-lportaudio
