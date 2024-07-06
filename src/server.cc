@@ -305,6 +305,8 @@ void Server::run() {
 
     if (exo::shouldRun(exo::QuitStatus::NO_MORE_JOBS))
         EXO_LOG("letting existing jobs finish...");
+    else
+        pcm_->close();
     jobs_->stop();
     exo::quit(exo::QuitStatus::NO_MORE_JOBS);
     pcm_->close();
@@ -316,11 +318,12 @@ void Server::run() {
     exo::quit(exo::QuitStatus::NO_MORE_EVENTS);
     publisher_->close();
 
-    exo::quit(exo::QuitStatus::QUITTING);
+    exo::quit(exo::QuitStatus::NO_MORE_PACKETS);
 
     for (auto& thread: encoders) thread.join();
     for (auto& thread: brocas) thread.join();
     // wait for publishers to finish
+    exo::quit(exo::QuitStatus::QUITTING);
     publisher_->stop();
     // detach the command queue thread, it doesn't matter anymore
     readCommandsThread_.detach();

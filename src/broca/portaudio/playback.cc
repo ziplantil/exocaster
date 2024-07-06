@@ -145,6 +145,7 @@ void PortAudioBroca::runImpl() {
     while (EXO_LIKELY((err = Pa_IsStreamActive(paStream_)) == 1))
         Pa_Sleep(500);
 
+    Pa_Sleep(500);
     Pa_StopStream(paStream_);
 }
 
@@ -153,8 +154,10 @@ int PortAudioBroca::streamCallback(const void* input, void* output,
                     const PaStreamCallbackTimeInfo* timeInfo,
                     PaStreamCallbackFlags statusFlags) {
     auto destination = reinterpret_cast<unsigned char*>(output);
-    if (EXO_UNLIKELY(!source_->readDirectFull(packet_, destination,
-                                       frameCount * bytesPerFrame_)))
+    std::memset(output, 0, frameCount * bytesPerFrame_);
+    std::size_t n = source_->readDirectFull(packet_, destination,
+                                       frameCount * bytesPerFrame_);
+    if (EXO_UNLIKELY(!n))
         return paComplete;
     if (EXO_UNLIKELY(!exo::shouldRun(exo::QuitStatus::QUITTING)))
         return paComplete;

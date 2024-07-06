@@ -32,7 +32,12 @@ DEALINGS IN THE SOFTWARE.
 namespace exo {
 
 enum class QuitStatus {
-    RUNNING, NO_MORE_COMMANDS, NO_MORE_JOBS, NO_MORE_EVENTS, QUITTING
+    RUNNING,
+    NO_MORE_COMMANDS,
+    NO_MORE_JOBS,
+    NO_MORE_EVENTS,
+    NO_MORE_PACKETS,
+    QUITTING
 };
 
 extern exo::QuitStatus quitStatus;

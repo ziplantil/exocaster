@@ -223,7 +223,7 @@ public:
         tail_ = (tail_ + 1) % buffer_.size();
         lock.unlock();
         waitToWrite_.notify_one();
-        return value;
+        return { std::move(value) };
     }
 
     /** Returns an approximation of the number of elements that can
@@ -326,7 +326,7 @@ public:
             waitToRead_.notify_one();
         }
 
-        while (count > 0) {
+        while (count-- > 0) {
             T temp = std::move(*src++);
         }
     }

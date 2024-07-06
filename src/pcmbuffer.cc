@@ -128,6 +128,7 @@ void PcmBuffer::writePcm(std::span<const exo::byte> data) {
 void PcmBuffer::close() noexcept {
     closed_ = true;
     hasPcm_.notify_all();
+    pcm_.close();
 }
 
 bool PcmBuffer::closed() const noexcept {
