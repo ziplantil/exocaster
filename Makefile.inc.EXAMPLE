@@ -3,6 +3,10 @@
 # _CXXFLAGS are passed to the C++ compiler
 # _LDLIBS are passed to the linker
 
+# Any additional flags to pass to the compiler and linker.
+CUSTOM_CXXFLAGS=
+CUSTOM_LDFLAGS=
+
 # Libraries: libavcodec, for lavc decoder
 LIBAVCODEC_ENABLE=1
 LIBAVCODEC_CXXFLAGS=

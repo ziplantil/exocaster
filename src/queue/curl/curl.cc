@@ -2,26 +2,26 @@
 exocaster -- audio streaming helper
 queue/curl/curl.cc -- HTTP GET/POST queue powered by curl
 
-MIT License 
+MIT License
 
 Copyright (c) 2024 ziplantil
 
-Permission is hereby granted, free of charge, to any person obtaining a 
-copy of this software and associated documentation files (the "Software"), 
-to deal in the Software without restriction, including without limitation 
-the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-and/or sell copies of the Software, and to permit persons to whom the 
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
 Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in 
+The above copyright notice and this permission notice shall be included in
 all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS 
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ***/
@@ -55,7 +55,7 @@ exo::HttpClient::HttpClient(const exo::ConfigObject& config,
         for (const auto& [key, value]: cfg::iterateObject(headers))
             headers_.insert_or_assign(key, value);
     }
-    
+
     if (cfg::hasString(config, "instanceParameter")) {
         CURLU* url = curl_url();
         if (!url) throw std::bad_alloc();
@@ -190,7 +190,7 @@ static std::size_t toStringStream_(const void* ptr, std::size_t size,
                                    std::size_t count, void* pStream) {
     reinterpret_cast<std::ostringstream*>(pStream)->
             write(static_cast<const char*>(ptr), size * count);
-    return count;    
+    return count;
 }
 
 exo::ConfigObject exo::HttpGetReadQueue::readLine() {
@@ -212,25 +212,25 @@ exo::ConfigObject exo::HttpGetReadQueue::readLine() {
                                       staticHeadersGet,
                                       exo::arraySize(staticHeadersGet));
         if (!ok) continue;
-    
+
         CURLcode ret;
         std::ostringstream stream;
-        if ((ret = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, 
+        if ((ret = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,
                     &exo::toStringStream_)) != CURLE_OK) {
             EXO_CURL_ERROR("curl_easy_setopt(CURLOPT_WRITEFUNCTION)", ret);
             continue;
         }
-        if ((ret = curl_easy_setopt(curl, CURLOPT_WRITEDATA, 
+        if ((ret = curl_easy_setopt(curl, CURLOPT_WRITEDATA,
                     &stream)) != CURLE_OK) {
             EXO_CURL_ERROR("curl_easy_setopt(CURLOPT_WRITEDATA)", ret);
             continue;
         }
-    
+
         if ((ret = curl_easy_perform(curl)) != CURLE_OK) {
             EXO_CURL_ERROR("curl_easy_perform", ret);
             continue;
         }
-    
+
         auto str = stream.str();
         try {
             return cfg::parseFromMemory(str.begin(), str.end());
@@ -274,7 +274,7 @@ void exo::HttpPostWriteQueue::writeLine() {
         EXO_CURL_ERROR("curl_easy_setopt(CURLOPT_POST)", ret);
         return;
     }
-    if ((ret = curl_easy_setopt(curl, CURLOPT_POSTFIELDS, 
+    if ((ret = curl_easy_setopt(curl, CURLOPT_POSTFIELDS,
                 str.c_str())) != CURLE_OK) {
         EXO_CURL_ERROR("curl_easy_setopt(CURLOPT_POSTFIELDS)", ret);
         return;

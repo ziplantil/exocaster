@@ -137,17 +137,14 @@ Fields (all optional):
     * `mono`: mono, one channel
     * `stereo`: stereo, two channels (default)
 * `duration`: The duration of the sample buffer in seconds,
-  as a positive number (default: 5.0)
-* `waitrel`: The multiplier of time to wait if the PCM buffer is full before
-  skipping blocks. For example, 5.0 means that if a PCM block that is 100 ms
-  long is pushed, exocaster will wait for 500 ms before skipping parts of the
-  block, if they were not yet fully written. A positive number. (default: 5.0)
-* `waitabs`: The minimum absolute time to wait for a PCM block to be fully
-  written into the buffer before parts of it will be skipped. This wait time
-  only applies if the duration of the block times `waitrel` would be under
-  `waitabs`. A non-negative number in seconds. If you run into buffer
-  overruns constantly with a specific broca, try increasing `waitrel` and
-  `waitabs`. (default: 0.2)
+  as a positive number (default: 1.0)
+* `skip`: A boolean specifying whether the decoder should try to skip certain
+  encoders if they take too long to accept sample data. (Default: `true`)
+* `skipmargin`: A positive number. The number of seconds of margin to allow
+  when pushing PCM blocks before skipping. (Default: 0.1)
+* `skipfactor`: A positive number. A multiplier to apply when waiting. If the
+  buffer is full, the waiting time is determined by multiplying the duration
+  of the PCM block with this factor and adding it to `margin`. (default: 2.0)
 
 Example:
 ```json

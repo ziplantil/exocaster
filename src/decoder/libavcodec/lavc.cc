@@ -2,26 +2,26 @@
 exocaster -- audio streaming helper
 decoder/libavcodec/lavc.cc -- libavcodec powered decoder
 
-MIT License 
+MIT License
 
 Copyright (c) 2024 ziplantil
 
-Permission is hereby granted, free of charge, to any person obtaining a 
-copy of this software and associated documentation files (the "Software"), 
-to deal in the Software without restriction, including without limitation 
-the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-and/or sell copies of the Software, and to permit persons to whom the 
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
 Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in 
+The above copyright notice and this permission notice shall be included in
 all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS 
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ***/
@@ -56,7 +56,13 @@ extern "C" {
 #endif
 }
 
+#ifndef EXO_LAVC_DEBUG
+#if NDEBUG
 #define EXO_LAVC_DEBUG 0
+#else
+#define EXO_LAVC_DEBUG 1
+#endif
+#endif
 
 namespace exo {
 
@@ -95,8 +101,8 @@ std::optional<std::unique_ptr<BaseDecodeJob>> LavcDecoder::createJob(
         filePath = cfg::getString(request);
     }
 
-    return { 
-        std::make_unique<exo::LavcDecodeJob>(sink_, pcmFormat_, 
+    return {
+        std::make_unique<exo::LavcDecodeJob>(sink_, pcmFormat_,
                 std::move(command), filePath, params_)
     };
 }
@@ -107,7 +113,7 @@ LavcDecodeJob::LavcDecodeJob(std::shared_ptr<exo::PcmSplitter> sink,
                              const std::string& filePath,
                              const exo::LavcDecodeParams& params)
     : BaseDecodeJob(sink, pcmFormat, command),
-      filePath_(filePath), params_(params) { 
+      filePath_(filePath), params_(params) {
     decltype(AV_CH_LAYOUT_MONO) formatChannels;
 
     switch (pcmFormat_.channels) {
@@ -238,7 +244,7 @@ void LavcDecodeJob::init() {
 
 #if USE_LIBAVFILTER
     if (!setupFilter_())
-        return; 
+        return;
 #else
     if (params_.applyReplayGain)
         calculateGain_();
@@ -363,12 +369,12 @@ bool LavcDecodeJob::setupFilter_() {
     {
         std::ostringstream pcmDescriptionStream;
         pcmDescriptionStream.imbue(std::locale::classic());
-        pcmDescriptionStream 
+        pcmDescriptionStream
                 << "time_base=" << timeBase.num << "/" << timeBase.den << ":"
                 << "sample_rate=" << codecContext_->sample_rate << ":"
                 << "sample_fmt=" << sampleFmtName << ":"
                 << "channel_layout=" << channelDescription;
-    
+
         auto abufferParam = pcmDescriptionStream.str();
         ret = avfilter_graph_create_filter(&bufferSourceContext_, abuffer,
                                            "in", abufferParam.c_str(),
@@ -432,7 +438,7 @@ bool LavcDecodeJob::setupFilter_() {
         filterDescriptionStream.imbue(std::locale::classic());
 
         if (params_.applyReplayGain) {
-            filterDescriptionStream 
+            filterDescriptionStream
                     << "volume="
                         "replaygain=track:"
                         "replaygain_preamp=" << params_.replayGainPreamp << ":"
@@ -475,7 +481,7 @@ bool LavcDecodeJob::setupFilter_() {
 int LavcDecodeJob::filterFrames_(std::shared_ptr<exo::PcmSplitter>& sink,
                                  bool flush) {
     int ret;
-    while (EXO_LIKELY(exo::shouldRun()) && 
+    while (EXO_LIKELY(exo::shouldRun()) &&
             (ret = av_buffersink_get_frame(filterSinkContext_,
                                             filterFrame_)) >= 0) {
         std::size_t dataSize = filterFrame_->nb_samples
@@ -519,7 +525,7 @@ template <std::unsigned_integral T>
 std::make_signed_t<T> convertUnsignedToSigned_(T sample) {
     using SignedT = std::make_signed_t<T>;
     using Wide = exo::WiderType_t<T>;
-    return static_cast<SignedT>(static_cast<Wide>(sample) 
+    return static_cast<SignedT>(static_cast<Wide>(sample)
                 + static_cast<Wide>(std::numeric_limits<SignedT>::min()));
 }
 
@@ -527,7 +533,7 @@ template <std::signed_integral T>
 std::make_unsigned_t<T> convertSignedToUnsigned_(T sample) {
     using UnsignedT = std::make_unsigned_t<T>;
     using Wide = exo::WiderType_t<T>;
-    return static_cast<UnsignedT>(static_cast<Wide>(sample) 
+    return static_cast<UnsignedT>(static_cast<Wide>(sample)
             - static_cast<Wide>(std::numeric_limits<T>::min()));
 }
 
@@ -810,7 +816,7 @@ void LavcDecodeJob::readMetadata_(const AVDictionary* metadict) {
                 metadata_.push_back({ it->second, tag->value });
             else
                 metadata_.push_back({ tag->key, tag->value });
-            
+
         } else {
             metadata_.push_back({ tag->key, tag->value });
         }
@@ -822,8 +828,8 @@ void LavcDecodeJob::run(std::shared_ptr<exo::PcmSplitter> sink) {
 
     sink->metadata(command_, metadata_);
     int ret;
-    while (EXO_LIKELY((ret = av_read_frame(formatContext_, packet_)) >= 0 &&
-                    (exo::shouldRun()))) {
+    while ((ret = av_read_frame(formatContext_, packet_) >= 0) &&
+                    EXO_LIKELY(exo::shouldRun())) {
         if (packet_->stream_index == streamIndex_) {
             if (EXO_UNLIKELY((ret = avcodec_send_packet(
                         codecContext_, packet_)) < 0)) {
@@ -832,7 +838,7 @@ void LavcDecodeJob::run(std::shared_ptr<exo::PcmSplitter> sink) {
             }
         }
         av_packet_unref(packet_);
-        
+
         ret = decodeFrames_(sink, false);
         if (EXO_UNLIKELY(ret != AVERROR(EAGAIN)))
             break;

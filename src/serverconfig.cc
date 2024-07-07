@@ -2,32 +2,33 @@
 exocaster -- audio streaming helper
 server_config.cc -- server configuration
 
-MIT License 
+MIT License
 
 Copyright (c) 2024 ziplantil
 
-Permission is hereby granted, free of charge, to any person obtaining a 
-copy of this software and associated documentation files (the "Software"), 
-to deal in the Software without restriction, including without limitation 
-the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-and/or sell copies of the Software, and to permit persons to whom the 
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
 Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in 
+The above copyright notice and this permission notice shall be included in
 all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS 
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ***/
 
 #include "config.hh"
 #include "pcmtypes.hh"
+#include <stdexcept>
 #include "serverconfig.hh"
 
 namespace exo {
@@ -97,9 +98,17 @@ exo::PcmBufferConfig PcmBufferConfig::read(const exo::ConfigObject& c) {
                 "pcmbuffer", "samplerate", 44100);
     auto channelsString = cfg::mayRead<std::string>(c,
                 "pcmbuffer", "channels", "stereo");
-    auto duration = cfg::mayRead<double>(c, "pcmbuffer", "duration", 5.0);
-    auto waitrel = cfg::mayRead<double>(c, "pcmbuffer", "waitrel", 5.0);
-    auto waitabs = cfg::mayRead<double>(c, "pcmbuffer", "waitabs", 0.2);
+    auto duration = cfg::mayRead<double>(c, "pcmbuffer", "duration", 1.0);
+    auto skip = cfg::mayRead<bool>(c, "pcmbuffer", "skip", true);
+    auto skipmargin = cfg::mayRead<double>(c, "pcmbuffer", "skipmargin", 0.1);
+    auto skipfactor = cfg::mayRead<double>(c, "pcmbuffer", "skipfactor", 2.0);
+
+    if (duration < 0)
+        throw std::runtime_error("duration cannot be negative");
+    if (skipmargin < 0)
+        throw std::runtime_error("skipmargin cannot be negative");
+    if (skipfactor < 0)
+        throw std::runtime_error("skipfactor cannot be negative");
 
     auto pcmFormat = exo::readPcmFormat(format);
     auto channels = exo::readChannelLayout(channelsString);
@@ -111,8 +120,9 @@ exo::PcmBufferConfig PcmBufferConfig::read(const exo::ConfigObject& c) {
         .size = static_cast<std::size_t>(duration * samplerate
                         * exo::channelCount(channels)
                         * exo::bytesPerSampleFormat(pcmFormat)),
-        .waitrel = waitrel,
-        .waitabs = waitabs,
+        .skip = skip,
+        .skipmargin = skipmargin,
+        .skipfactor = skipfactor,
     };
 }
 
@@ -162,13 +172,13 @@ static std::vector<exo::OutputConfig> readOutputs(const exo::ConfigObject& c) {
 }
 
 exo::ServerConfig ServerConfig::read(const exo::ConfigObject& c) {
-    if (!cfg::hasObject(c, "shell")) 
+    if (!cfg::hasObject(c, "shell"))
         throw exo::InvalidConfigError("no 'shell' field in config");
-    if (!cfg::hasObject(c, "commands")) 
+    if (!cfg::hasObject(c, "commands"))
         throw exo::InvalidConfigError("no 'commands' field in config");
-    if (!cfg::hasArray(c, "outputs")) 
+    if (!cfg::hasArray(c, "outputs"))
         throw exo::InvalidConfigError("no 'outputs' field in config");
-    
+
     return exo::ServerConfig{
         .shell = exo::QueueConfig::read(cfg::key(c, "shell")),
         .publish = exo::readPublish(cfg::key(c, "publish")),

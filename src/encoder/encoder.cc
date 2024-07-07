@@ -2,26 +2,26 @@
 exocaster -- audio streaming helper
 encoder/encoder.cc -- encoder framework
 
-MIT License 
+MIT License
 
 Copyright (c) 2024 ziplantil
 
-Permission is hereby granted, free of charge, to any person obtaining a 
-copy of this software and associated documentation files (the "Software"), 
-to deal in the Software without restriction, including without limitation 
-the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-and/or sell copies of the Software, and to permit persons to whom the 
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
 Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in 
+The above copyright notice and this permission notice shall be included in
 all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS 
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ***/
@@ -32,6 +32,7 @@ DEALINGS IN THE SOFTWARE.
 
 #include "encoder/pcm.hh"
 #include "helpers.hh"
+#include "log.hh"
 #include "server.hh"
 
 #include "encoder/encoder.hh"
@@ -41,7 +42,7 @@ DEALINGS IN THE SOFTWARE.
 #define ENCODER_DEFS_LIBVORBIS                                                 \
     ENCODER_DEF(oggvorbis, exo::OggVorbisEncoder)
 #else
-#define ENCODER_DEFS_LIBVORBIS 
+#define ENCODER_DEFS_LIBVORBIS
 #endif
 
 #if EXO_LIBFLAC
@@ -49,7 +50,7 @@ DEALINGS IN THE SOFTWARE.
 #define ENCODER_DEFS_LIBFLAC                                                   \
     ENCODER_DEF(oggflac, exo::OggFlacEncoder)
 #else
-#define ENCODER_DEFS_LIBFLAC 
+#define ENCODER_DEFS_LIBFLAC
 #endif
 
 namespace exo {
@@ -77,7 +78,7 @@ std::unique_ptr<exo::BaseEncoder> createEncoder(
             std::shared_ptr<exo::PcmBuffer> source,
             exo::PcmFormat pcmFormat) {
     auto it = encoders.find(type);
-    
+
     if (it != encoders.end()) {
         switch (it->second) {
 #define ENCODER_DEF(N, T)                                                      \
@@ -89,7 +90,7 @@ std::unique_ptr<exo::BaseEncoder> createEncoder(
     }
 
     throw exo::UnknownEncoderError("unknown encoder '" + type + "'");
-    
+
 }
 
 void BaseEncoder::packet(std::size_t frameCount,
@@ -116,8 +117,14 @@ void BaseEncoder::run() {
             metadataPtr = nullptr;
         }
 
+        auto t0 = std::chrono::steady_clock::now();
         std::size_t n = source_->readPcm(exo::arrayAsSpan(buffer));
+        auto t1 = std::chrono::steady_clock::now();
         if (EXO_LIKELY(n)) {
+            auto waitMs = std::chrono::duration_cast<
+                        std::chrono::milliseconds>(t1 - t0).count();
+            if (waitMs >= 500)
+                EXO_LOG("buffer underrun? waited %u ms", waitMs);
             pcmBlock(n / pcmFormat_.bytesPerFrame(),
                      std::span<exo::byte>(buffer.begin(), n));
         } else if (EXO_UNLIKELY(source_->closed())) {

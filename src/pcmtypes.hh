@@ -2,26 +2,26 @@
 exocaster -- audio streaming helper
 pcmtypes.hh -- PCM types
 
-MIT License 
+MIT License
 
 Copyright (c) 2024 ziplantil
 
-Permission is hereby granted, free of charge, to any person obtaining a 
-copy of this software and associated documentation files (the "Software"), 
-to deal in the Software without restriction, including without limitation 
-the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-and/or sell copies of the Software, and to permit persons to whom the 
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
 Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in 
+The above copyright notice and this permission notice shall be included in
 all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS 
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ***/
@@ -138,12 +138,12 @@ inline constexpr std::size_t bytesPerSampleFormat(exo::PcmSampleFormat fmt) {
 
 template <exo::PcmSampleFormat fmt>
 constexpr bool IsSampleSignedInt_v =
-        std::is_integral_v<exo::PcmFormat_t<fmt>> && 
+        std::is_integral_v<exo::PcmFormat_t<fmt>> &&
         std::is_signed_v<exo::PcmFormat_t<fmt>>;
 
 template <exo::PcmSampleFormat fmt>
 constexpr bool IsSampleUnsignedInt_v =
-        std::is_integral_v<exo::PcmFormat_t<fmt>> && 
+        std::is_integral_v<exo::PcmFormat_t<fmt>> &&
         std::is_unsigned_v<exo::PcmFormat_t<fmt>>;
 
 template <exo::PcmSampleFormat fmt>
@@ -215,7 +215,7 @@ struct PcmChannelDefs<exo::PcmChannelLayout::Stereo> {
 
 inline constexpr std::size_t MAX_CHANNELS = 8;
 
-template <exo::PcmChannelLayout C> 
+template <exo::PcmChannelLayout C>
 inline constexpr unsigned channelCount_() {
     constexpr unsigned channels = exo::PcmChannelDefs<C>::channels;
     static_assert(channels <= MAX_CHANNELS);

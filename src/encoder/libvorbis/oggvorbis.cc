@@ -2,26 +2,26 @@
 exocaster -- audio streaming helper
 encoder/libvorbis/oggvorbis.cc -- OGG Vorbis encoder using libvorbis
 
-MIT License 
+MIT License
 
 Copyright (c) 2024 ziplantil
 
-Permission is hereby granted, free of charge, to any person obtaining a 
-copy of this software and associated documentation files (the "Software"), 
-to deal in the Software without restriction, including without limitation 
-the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-and/or sell copies of the Software, and to permit persons to whom the 
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
 Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in 
+The above copyright notice and this permission notice shall be included in
 all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS 
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ***/
@@ -101,7 +101,7 @@ exo::OggStreamState::~OggStreamState() noexcept {
 exo::OggVorbisEncoder::OggVorbisEncoder(const exo::ConfigObject& config,
                             std::shared_ptr<exo::PcmBuffer> source,
                             exo::PcmFormat pcmFormat):
-                BaseEncoder(source, pcmFormat) { 
+                BaseEncoder(source, pcmFormat) {
     nomBitrate_ = cfg::namedInt<
                 std::int_least32_t>(config, "bitrate", 128000);
     minBitrate_ = cfg::namedInt<
@@ -141,7 +141,7 @@ void exo::OggVorbisEncoder::pushPage_(const ogg_page& page) {
     granulesInPage_ -= static_cast<std::size_t>(
             newGranulePosition - lastGranulePosition_);
     lastGranulePosition_ = newGranulePosition;
-    endOfStream_ = ogg_page_eos(&page); 
+    endOfStream_ = ogg_page_eos(&page);
 }
 
 void exo::OggVorbisEncoder::flushBuffers_() {
@@ -211,7 +211,7 @@ void exo::OggVorbisEncoder::startTrack(const exo::Metadata& metadata) {
                 "skipping track.", ret);
         return;
     }
-   
+
     ret = vorbis_encode_setup_init(info);
     if (ret) {
         EXO_LOG("oggvorbis: vorbis_encode_setup_init failed (%d). "
@@ -236,7 +236,7 @@ void exo::OggVorbisEncoder::startTrack(const exo::Metadata& metadata) {
 
     for (const auto& [key, value] : metadata)
         vorbis_comment_add_tag(comment, key.c_str(), value.c_str());
-    
+
     std::array<ogg_packet, 3> heads;
     vorbis_analysis_headerout(dsp, comment, &heads[0], &heads[1], &heads[2]);
     for (unsigned i = 0; i < heads.size(); ++i)
@@ -254,8 +254,8 @@ static void uninterleaveToFloat_(float** dst,
                                  const void* srcv,
                                  unsigned channels,
                                  std::size_t frames) {
-    auto src = reinterpret_cast<const exo::PcmFormat_t<fmt>*>(srcv); 
-    
+    auto src = reinterpret_cast<const exo::PcmFormat_t<fmt>*>(srcv);
+
     for (std::size_t c = 0; c < channels; ++c) {
         auto sample = src;
 
@@ -292,7 +292,7 @@ void exo::OggVorbisEncoder::pcmBlock(std::size_t frameCount,
     alignas(std::uintmax_t) exo::byte alignedBuffer[4096] = { 0 };
     auto dsp = dspState_->ptr();
     auto fitFrames = sizeof(alignedBuffer) / pcmFormat_.bytesPerFrame();
-    
+
     float** dspBuffer = vorbis_analysis_buffer(dsp, fitFrames);
     const auto pcmFormat = pcmFormat_;
     while (count > 0 && EXO_LIKELY(exo::shouldRun())) {

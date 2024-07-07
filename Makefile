@@ -6,6 +6,9 @@ CXX ?= g++
 LD := $(CXX)
 RM = rm -f
 
+CUSTOM_CXXFLAGS ?= 
+CUSTOM_LDFLAGS ?= 
+
 ifdef RELEASE
 CFLAGS=-O3 -DNDEBUG
 CXXFLAGS=-O3 -DNDEBUG
@@ -20,6 +23,9 @@ CFLAGS := $(CFLAGS) -MMD -MP
 CXXFLAGS := $(CXXFLAGS) -Iincludes -Isrc -Ivendor -std=c++20 -MMD -MP
 LDFLAGS := $(LDFLAGS)
 LDLIBS = -lm -lpthread
+
+CXXFLAGS := $(CXXFLAGS) $(CUSTOM_CXXFLAGS)
+LDFLAGS := $(LDFLAGS) $(CUSTOM_LDFLAGS)
 
 TARGET := build/exocaster
 OBJS := src/queue/queue.o \

@@ -22,8 +22,8 @@ Either `null` or a JSON object. If an object, the fields are:
   track gain and peak are used to apply ReplayGain to the decoded audio
   stream. Note that ReplayGain tags are always stripped prior to encoding.
   (Default: `false`)
-* `replayGainPreamp` (optional): A preamp in dB as a number. (Default: 0.0) 
-* `replayGainAntipeak` (optional): A boolean value. Whether to apply clippin
+* `replayGainPreamp` (optional): A preamp in dB as a number. (Default: 0.0)
+* `replayGainAntipeak` (optional): A boolean value. Whether to apply clipping
   prevention using the ReplayGain peak value. (Default: `true`)
 * `r128Fix` (optional): A boolean value. If `true`, codecs that use R128
   gain (e.g. Opus) are automatically adjusted when applying ReplayGain so

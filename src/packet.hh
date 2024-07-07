@@ -2,26 +2,26 @@
 exocaster -- audio streaming helper
 packet.hh -- packet system
 
-MIT License 
+MIT License
 
 Copyright (c) 2024 ziplantil
 
-Permission is hereby granted, free of charge, to any person obtaining a 
-copy of this software and associated documentation files (the "Software"), 
-to deal in the Software without restriction, including without limitation 
-the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-and/or sell copies of the Software, and to permit persons to whom the 
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
 Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in 
+The above copyright notice and this permission notice shall be included in
 all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS 
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ***/
@@ -44,7 +44,7 @@ struct PacketHeader {
 };
 
 template <typename T>
-requires (std::is_pod_v<T>)
+requires (std::is_trivial_v<T>)
 struct RingBufferWithHeader: public exo::RingBuffer<exo::byte> {
     using exo::RingBuffer<exo::byte>::RingBuffer;
 
@@ -119,11 +119,11 @@ public:
             didRead_(n);
             return n;
         }
-        
+
         /** Reads bytes from the packet into the iterator. Returns the number
             of bytes read. This read is blocking if there are no bytes,
             but otherwise will not block to read the buffer until full.
-            
+
             If there were not enough values, the remaining values
             are not affected. */
         template <typename OutputIt>
@@ -139,7 +139,7 @@ public:
             of bytes read. This read is blocking until the buffer has been
             fully read. It may return early and return less than requested
             only if the packet is exhausted or buffer is closed.
-            
+
             If there were not enough values, the remaining values
             are not affected. */
         template <typename OutputIt>
@@ -151,7 +151,7 @@ public:
             return n;
         }
 
-        friend exo::PacketRingBuffer; 
+        friend exo::PacketRingBuffer;
     };
 
     /** Reads a single packet. Can return an empty value only if the
@@ -177,9 +177,9 @@ public:
         and will read the data from them as necessary, ignoring other
         packet headers. A reference to a PacketRead object must be provided
         to keep track of remaining bytes in the current packet.
-    
+
         Returns the number of bytes read. This read is non-blocking.
-        
+
         If there were not enough values, the remaining values
         are not affected. */
     template <typename OutputIt>
@@ -197,11 +197,11 @@ public:
         and will read the data from them as necessary, ignoring other
         packet headers. A reference to a PacketRead object must be provided
         to keep track of remaining bytes in the current packet.
-    
+
         Returns the number of elements read. This read is blocking if there
         are no bytes, but otherwise will not block to read the buffer
         until full.
-        
+
         If there were not enough values, the remaining values
         are not affected. */
     template <typename OutputIt>
@@ -219,11 +219,11 @@ public:
         and will read the data from them as necessary, ignoring other
         packet headers. A reference to a PacketRead object must be provided
         to keep track of remaining bytes in the current packet.
-    
+
         Returns the number of bytes read. This read is blocking until the
         buffer has been fully read. It may return early and return less than
         requested only if the buffer is closed.
-        
+
         If there were not enough values, the remaining values
         are not affected. */
     template <typename OutputIt>

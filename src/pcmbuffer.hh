@@ -2,26 +2,26 @@
 exocaster -- audio streaming helper
 pcmbuffer.hh -- PCM and metadata buffer
 
-MIT License 
+MIT License
 
 Copyright (c) 2024 ziplantil
 
-Permission is hereby granted, free of charge, to any person obtaining a 
-copy of this software and associated documentation files (the "Software"), 
-to deal in the Software without restriction, including without limitation 
-the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-and/or sell copies of the Software, and to permit persons to whom the 
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
 Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in 
+The above copyright notice and this permission notice shall be included in
 all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS 
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ***/
@@ -38,6 +38,7 @@ DEALINGS IN THE SOFTWARE.
 
 #include "buffer.hh"
 #include "config.hh"
+#include "fclock.hh"
 #include "metadata.hh"
 #include "pcmtypes.hh"
 #include "publisher.hh"
@@ -52,6 +53,8 @@ struct PcmBufferRow {
     std::size_t pcmBytes;
 };
 
+static constexpr std::uint_least32_t SKIP_FACTOR_FRAC_BITS = 16;
+
 class PcmBuffer {
     exo::RingBuffer<byte> pcm_;
     // tracks left of this song, i.e. before song change
@@ -64,9 +67,12 @@ class PcmBuffer {
     exo::PcmFormat pcmFormat_;
     std::size_t subindex_;
     std::shared_ptr<exo::Publisher> publisher_;
-    double waitRel_;
-    double waitAbs_;
-    
+    bool skip_;
+    exo::FrameClock<> frameClock_;
+    std::uint_least64_t marginUs_;
+    std::uint_least32_t skipFactor_;
+    bool firstPcm_{true};
+
     std::timed_mutex mutex_;
     std::condition_variable_any hasPcm_;
 
@@ -76,13 +82,10 @@ class PcmBuffer {
     }
 
 public:
-    inline PcmBuffer(std::size_t subindex, const exo::PcmFormat& pcmFormat,
+    PcmBuffer(std::size_t subindex, const exo::PcmFormat& pcmFormat,
                      std::size_t bufferSize,
                      std::shared_ptr<exo::Publisher> publisher,
-                     const exo::PcmBufferConfig& config)
-         : pcm_(bufferSize), pcmFormat_(pcmFormat),
-           subindex_(subindex), publisher_(publisher),
-           waitRel_(config.waitrel), waitAbs_(config.waitabs) {}
+                     const exo::PcmBufferConfig& config);
 
     std::shared_ptr<exo::Metadata> readMetadata();
     std::size_t readPcm(std::span<exo::byte> destination);
@@ -101,12 +104,11 @@ class PcmSplitter {
     std::size_t bufferSize_;
     std::size_t bufferIndex_{0};
     std::shared_ptr<exo::Publisher> publisher_;
+    std::size_t chop_;
 
 public:
-    inline PcmSplitter(const exo::PcmFormat& pcmFormat, std::size_t bufferSize,
-                       std::shared_ptr<exo::Publisher> publisher)
-         : buffers_{}, pcmFormat_(pcmFormat),
-           bufferSize_(bufferSize), publisher_(publisher) {}
+    PcmSplitter(const exo::PcmFormat& pcmFormat, std::size_t bufferSize,
+                std::shared_ptr<exo::Publisher> publisher);
 
     std::shared_ptr<exo::PcmBuffer> addBuffer(
                 const exo::PcmBufferConfig& config);

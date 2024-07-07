@@ -2,26 +2,26 @@
 exocaster -- audio streaming helper
 buffer.hh -- concurrent ring buffer
 
-MIT License 
+MIT License
 
 Copyright (c) 2024 ziplantil
 
-Permission is hereby granted, free of charge, to any person obtaining a 
-copy of this software and associated documentation files (the "Software"), 
-to deal in the Software without restriction, including without limitation 
-the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-and/or sell copies of the Software, and to permit persons to whom the 
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
 Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in 
+The above copyright notice and this permission notice shall be included in
 all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS 
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ***/
@@ -52,6 +52,8 @@ class RingBuffer {
     std::size_t size_, head_, tail_;
     mutable std::timed_mutex mutex_;
     std::condition_variable_any waitToRead_, waitToWrite_;
+    std::shared_ptr<std::condition_variable_any>
+                    waitToReadExtra_, waitToWriteExtra_;
     bool closed_{false};
 
     bool canRead_() const noexcept {
@@ -97,13 +99,13 @@ class RingBuffer {
     std::size_t lockedToWrite_() const noexcept {
         return size_ - lockedToRead_();
     }
-    
+
     template <typename InputIt, bool move>
     std::pair<std::size_t, InputIt> lockedXferToBuffer_(
                         InputIt first, std::size_t count) {
         auto src = first;
         std::size_t totalWrite = std::min(count, lockedToWrite_());
-        
+
         if (totalWrite) {
             std::size_t sliver = buffer_.size() - head_;
             auto end = src + totalWrite;
@@ -122,22 +124,35 @@ class RingBuffer {
 
         return { totalWrite, src };
     }
-    
+
     template <typename InputIt>
     std::pair<std::size_t, InputIt> lockedCopyToBuffer_(
                         InputIt first, std::size_t count) {
         return lockedXferToBuffer_<InputIt, false>(first, count);
     }
-    
+
     template <typename InputIt>
     std::pair<std::size_t, InputIt> lockedMoveToBuffer_(
                         InputIt first, std::size_t count) {
         return lockedXferToBuffer_<InputIt, true>(first, count);
     }
 
+    void didRead_() noexcept {
+        waitToWrite_.notify_one();
+        if (waitToWriteExtra_) waitToWriteExtra_->notify_one();
+    }
+
+    void didWrite_() noexcept {
+        waitToRead_.notify_one();
+        if (waitToReadExtra_) waitToReadExtra_->notify_one();
+    }
+
 public:
-    RingBuffer(std::size_t size) : buffer_(size + 1),
-                size_(size), head_(0), tail_(0) {
+    RingBuffer(std::size_t size,
+               std::shared_ptr<std::condition_variable_any> readCv = nullptr,
+               std::shared_ptr<std::condition_variable_any> writeCv = nullptr)
+                    : buffer_(size + 1), size_(size), head_(0), tail_(0),
+                      waitToReadExtra_(readCv), waitToWriteExtra_(writeCv) {
         buffer_.shrink_to_fit();
     }
 
@@ -155,7 +170,7 @@ public:
 
     /** Reads elements into the iterator. Returns the number of elements
         read. This read is non-blocking.
-        
+
         If there were not enough values, the remaining values
         are not affected. */
     template <typename OutputIt>
@@ -167,7 +182,7 @@ public:
     /** Reads elements into the iterator. Returns the number of elements
         read. This read is blocking if there are no elements, but otherwise
         will not block to read the buffer until full.
-        
+
         If there were not enough values, the remaining values
         are not affected. */
     template <typename OutputIt>
@@ -181,7 +196,7 @@ public:
             if (closed_ && !canRead_()) break;
             std::tie(n, dst) = lockedMoveFromBuffer_(dst, count);
             lock.unlock();
-            waitToWrite_.notify_one();
+            didRead_();
         }
         return n;
     }
@@ -190,7 +205,7 @@ public:
         read. This read is blocking until the buffer has been fully read.
         It may return early and return less than requested only if the
         buffer is closed.
-        
+
         If there were not enough values, the remaining values
         are not affected. */
     template <typename OutputIt>
@@ -206,7 +221,7 @@ public:
             std::tie(n, dst) = lockedMoveFromBuffer_(dst, count);
             count -= n;
             lock.unlock();
-            waitToWrite_.notify_one();
+            didRead_();
         }
         return originalCount - count;
     }
@@ -222,7 +237,7 @@ public:
         T value(std::move(buffer_[tail_]));
         tail_ = (tail_ + 1) % buffer_.size();
         lock.unlock();
-        waitToWrite_.notify_one();
+        didRead_();
         return { std::move(value) };
     }
 
@@ -240,7 +255,7 @@ public:
         std::unique_lock lock(mutex_);
         auto n = std::get<0>(lockedCopyToBuffer_(first, count));
         lock.unlock();
-        if (n) waitToRead_.notify_one();
+        if (n) didWrite_();
         return n > 0;
     }
 
@@ -259,41 +274,43 @@ public:
             std::tie(n, src) = lockedCopyToBuffer_(src, count);
             count -= n;
             lock.unlock();
-            waitToRead_.notify_one();
+            didWrite_();
         }
     }
 
     /** Writes elements by copying from the iterator. This write is
-        non-blocking, but tries to write all elements within the given
-        timeout. Returns the number of elements actually written. */
-    template <typename InputIt>
+        non-blocking, but tries to write all elements before the given
+        point in time. Returns the number of elements actually written. */
+    template <typename InputIt, typename Clock, typename Dur>
     std::size_t writeTimed(InputIt first, std::size_t count,
-                           double timeoutSeconds) {
+                           const std::chrono::time_point<Clock, Dur>& until) {
         std::unique_lock lock(mutex_, std::defer_lock);
-        auto timeNow = std::chrono::system_clock::now();
-        auto timeout = timeNow + std::chrono::milliseconds(
-                        static_cast<long>(timeoutSeconds * 1000));
         auto src = first;
         std::size_t originalCount = count, n;
+        bool lockWait = false;
         while (count > 0) {
-            if (!lock.try_lock_until(timeout)) break;
-            if (!waitToWrite_.wait_until(lock, timeout,
-                                        [this]{ 
+            if (lockWait && !lock.try_lock_until(until))
+                break;
+            else if (!lockWait)
+                lock.lock();
+            if (!waitToWrite_.wait_until(lock, until,
+                                        [this]{
                                             return canWrite_() || closed_;
                                         }))
                 break;
             if (closed_) break;
             std::tie(n, src) = lockedCopyToBuffer_(src, count);
             count -= n;
+            lockWait = true;
             lock.unlock();
-            waitToRead_.notify_one();
+            didWrite_();
         }
         return originalCount - count;
     }
 
     /** Writes elements by moving from the iterator. This write is
         non-blocking. Returns the number of elements actually written.
-        
+
         If not all values were written, the remaining values
         are not affected. */
     template <typename InputIt>
@@ -301,14 +318,14 @@ public:
         std::unique_lock lock(mutex_);
         auto n = std::get<0>(lockedMoveToBuffer_(first, count));
         lock.unlock();
-        if (n) waitToRead_.notify_one();
+        if (n) didWrite_();
         return n > 0;
     }
 
     /** Writes elements by moving from the iterator. This write is
         blocking, and will write the entire buffer, unless the buffer
         is closed during the write.
-        
+
         If there were not enough values, the remaining values
         are discarded. */
     template <typename InputIt>
@@ -323,7 +340,7 @@ public:
             std::tie(n, src) = lockedMoveToBuffer_(src, count);
             count -= n;
             lock.unlock();
-            waitToRead_.notify_one();
+            didWrite_();
         }
 
         while (count-- > 0) {
@@ -361,25 +378,25 @@ public:
             for (auto& it: buffer_) it = std::move(T{});
             head_ = tail_ = 0;
         }
-        waitToWrite_.notify_one();
+        didRead_();
     }
 
     /** Returns true if the queue has been closed and there will no
         longer be any values to read. */
     bool closed() noexcept {
-        return closedForReads();
+        return closedToReads();
     }
 
     /** Returns true if the queue has been closed and there will no
         longer be any values to read. */
-    bool closedForReads() noexcept {
+    bool closedToReads() noexcept {
         std::lock_guard lock(mutex_);
         return closed_ && head_ == tail_;
     }
 
     /** Returns true if the queue has been closed and values
         may no longer be written. */
-    bool closedForWrites() noexcept {
+    bool closedToWrites() noexcept {
         std::lock_guard lock(mutex_);
         return closed_;
     }
