@@ -195,8 +195,9 @@ void LavcDecodeJob::init() {
 
     readMetadata_(formatContext_->metadata);
 
+    const AVCodec* codec = nullptr;
     int streamIndex = av_find_best_stream(formatContext_, AVMEDIA_TYPE_AUDIO,
-                                          -1, -1, nullptr, 0);
+                                          -1, -1, &codec, 0);
     if (EXO_UNLIKELY(streamIndex < 0)) {
         EXO_LAVC_ERROR("av_find_best_stream", ret);
         return;
@@ -210,8 +211,6 @@ void LavcDecodeJob::init() {
     av_dump_format(formatContext_, streamIndex, filePath_.c_str(), 0);
 #endif
 
-    auto codecpar = formatContext_->streams[streamIndex]->codecpar;
-    const AVCodec* codec = avcodec_find_decoder(codecpar->codec_id);
     if (EXO_UNLIKELY(!codec)) {
         EXO_LOG("lavc file codec not supported");
         return;
@@ -223,6 +222,7 @@ void LavcDecodeJob::init() {
         return;
     }
 
+    auto codecpar = formatContext_->streams[streamIndex]->codecpar;
     if (EXO_UNLIKELY((ret = avcodec_parameters_to_context(
                     codecContext_, codecpar)) < 0)) {
         EXO_LAVC_ERROR("avcodec_parameters_to_context", ret);
@@ -710,7 +710,7 @@ int LavcDecodeJob::processFrame_(std::shared_ptr<exo::PcmSplitter>& sink,
                                  const AVFrame* frame) {
     if (!frame) {
         // flush
-        while (EXO_LIKELY(exo::shouldRun(exo::QuitStatus::NO_MORE_JOBS))) {
+        while (EXO_LIKELY(exo::shouldRun())) {
             exo::byte* out = buffer_;
             int gotFrames = swr_convert(resamplerContext_, &out,
                             bufferFrameCount_, nullptr, 0);
@@ -731,8 +731,7 @@ int LavcDecodeJob::processFrame_(std::shared_ptr<exo::PcmSplitter>& sink,
         int inCount = frame->nb_samples;
         const exo::byte* in = frame->data[0];
 
-        while (EXO_LIKELY(exo::shouldRun(exo::QuitStatus::NO_MORE_JOBS))
-                && framesToExpect > 0) {
+        while (EXO_LIKELY(exo::shouldRun()) && framesToExpect > 0) {
             exo::byte* out = buffer_;
             int expectFrames = std::min(framesToExpect, bufferFrameCount_);
             int gotFrames = swr_convert(resamplerContext_, &out,
