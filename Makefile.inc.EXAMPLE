@@ -16,7 +16,7 @@ LIBVORBIS_LDLIBS=-lvorbis -lvorbisenc -logg
 # Libraries: libflac, for oggflac encoder
 LIBFLAC_ENABLE=0
 LIBFLAC_CXXFLAGS=
-LIBFLAC_LDLIBS=-lflac -logg
+LIBFLAC_LDLIBS=-lFLAC -logg
 
 # Libraries: libshout, for shout broca
 SHOUT_ENABLE=0

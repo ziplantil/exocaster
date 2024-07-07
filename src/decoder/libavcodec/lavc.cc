@@ -37,6 +37,7 @@ DEALINGS IN THE SOFTWARE.
 #include "decoder/libavcodec/lavc.hh"
 #include "config.hh"
 #include "log.hh"
+#include "metadata.hh"
 #include "pcmtypes.hh"
 #include "util.hh"
 
@@ -69,6 +70,8 @@ LavcDecoder::LavcDecoder(const exo::ConfigObject& config,
     params_.replayGainAntipeak = cfg::namedBoolean(config,
                             "replayGainAntipeak", true);
     params_.r128Fix = cfg::namedBoolean(config, "r128Fix", false);
+    params_.normalizeVorbisComment = cfg::namedBoolean(config,
+                "normalizeVorbisComment", true);
 }
 
 std::optional<std::unique_ptr<BaseDecodeJob>> LavcDecoder::createJob(
@@ -753,6 +756,13 @@ void LavcDecodeJob::flush_(std::shared_ptr<exo::PcmSplitter>& sink) {
 #endif
 }
 
+static exo::CaseInsensitiveMap<std::string> normalizedVorbisCommentKeys = {
+    { "album_artist", "ALBUMARTIST" },
+    { "track", "TRACKNUMBER" },
+    { "disc", "DISCNUMBER" },
+    { "comment", "DESCRIPTION" },
+};
+
 void LavcDecodeJob::readMetadata_(const AVDictionary* metadict) {
     const AVDictionaryEntry* tag = nullptr;
 #if !USE_LIBAVFILTER
@@ -793,8 +803,16 @@ void LavcDecodeJob::readMetadata_(const AVDictionary* metadict) {
             }
 #endif
 
+        } else if (params_.normalizeVorbisComment) {
+            auto it = exo::normalizedVorbisCommentKeys.find(
+                                    std::string(tag->key));
+            if (it != exo::normalizedVorbisCommentKeys.end())
+                metadata_.push_back({ it->second, tag->value });
+            else
+                metadata_.push_back({ tag->key, tag->value });
+            
         } else {
-            metadata_.insert_or_assign(tag->key, tag->value);
+            metadata_.push_back({ tag->key, tag->value });
         }
     }
 }

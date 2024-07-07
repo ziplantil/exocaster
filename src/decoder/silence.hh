@@ -29,8 +29,6 @@ DEALINGS IN THE SOFTWARE.
 #ifndef DECODER_SILENCE_HH
 #define DECODER_SILENCE_HH
 
-#include <utility>
-
 #include "decoder/decoder.hh"
 
 namespace exo {

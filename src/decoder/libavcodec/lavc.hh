@@ -52,6 +52,7 @@ struct LavcDecodeParams {
     double replayGainPreamp;
     bool replayGainAntipeak;
     bool r128Fix;
+    bool normalizeVorbisComment;
 };
 
 #if !USE_LIBAVFILTER

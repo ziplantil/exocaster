@@ -46,7 +46,7 @@ class FrameClock {
     // the time remaining for one frame
     TimeUnit frameRemainder_;
     // number of frames
-    std::size_t frames_;
+    unsigned long long frames_;
 
     inline TimeUnit elapsed_() noexcept {
         auto newValue = std::chrono::duration_cast<
@@ -63,12 +63,17 @@ public:
         elapsed_();  // init clock
     }
 
+    inline void reset() {
+        frameRemainder_ = 0;
+        frames_ = 0;
+        elapsed_();
+    }
+
     inline void update(unsigned long gotFrames = 0) noexcept {
-        frames_ += gotFrames;
         auto elapsed = elapsed_() + frameRemainder_;
         auto elapsedFrames = elapsed / frameDuration_;
         frameRemainder_ = elapsed % frameDuration_;
-        frames_ = frames_ > elapsedFrames ? frames_ - elapsedFrames : 0;
+        frames_ = frames_ + static_cast<long long>(gotFrames) - elapsedFrames;
     }
 
     inline void sleepIf(std::size_t atLeastFrames) noexcept {

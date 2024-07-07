@@ -48,6 +48,7 @@ anything about the format and thus cannot safely skip blocks.
 
 ## Metadata
 
-Metadata is expressed internally using a Vorbis comment like key-value map.
-The PCM buffers from the decoder to the encoder encode metadata changes and
-ensure that they are passed to the encoder at right positions.
+Metadata is expressed internally as if it were a pair of keys and values
+like a Vorbis comment. The PCM buffers from the decoder to the encoder encode
+metadata changes and ensure that they are passed to the encoder
+at right positions.

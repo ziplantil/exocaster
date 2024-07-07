@@ -33,6 +33,8 @@ DEALINGS IN THE SOFTWARE.
 #include <locale>
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace exo {
 
@@ -88,7 +90,7 @@ using CaseInsensitiveMap = std::unordered_map<std::string, T,
                                               exo::CaseInsensitiveHash_,
                                               exo::CaseInsensitiveEqual_>;
 
-using Metadata = exo::CaseInsensitiveMap<std::string>;
+using Metadata = std::vector<std::pair<std::string, std::string>>;
 
 } // namespace exo
 

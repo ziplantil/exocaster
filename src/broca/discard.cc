@@ -47,6 +47,7 @@ DiscardBroca::DiscardBroca(const exo::ConfigObject& config,
 
 void DiscardBroca::runImpl() {
     exo::byte buffer[exo::BaseBroca::DEFAULT_BROCA_BUFFER];
+    frameClock_.reset();
     while (exo::shouldRun()) {
         auto packet = source_->readPacket();
         if (!packet.has_value()) break;
