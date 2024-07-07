@@ -34,9 +34,9 @@ DEALINGS IN THE SOFTWARE.
 namespace exo {
 
 exo::Command exo::CommandQueue::nextCommand() {
-    while (exo::shouldRun(exo::QuitStatus::NO_MORE_COMMANDS)) {
+    while (exo::acceptsCommands()) {
         auto configObject = below_->readLine();
-        if (!exo::shouldRun(exo::QuitStatus::NO_MORE_COMMANDS))
+        if (!exo::acceptsCommands())
             break;
 
         if (!cfg::hasString(configObject, "cmd")) {

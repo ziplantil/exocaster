@@ -52,7 +52,7 @@ exo::ZeroMqReadQueue::ZeroMqReadQueue(const exo::ConfigObject& config,
 exo::ConfigObject exo::ZeroMqReadQueue::readLine() {
     zmq::message_t msg;
 
-    for (;;) {
+    while (exo::acceptsCommands()) {
         auto res = sock_.recv(msg, zmq::recv_flags::none);
         if (!res.has_value()) {
             if (closed_) break;
@@ -69,7 +69,7 @@ exo::ConfigObject exo::ZeroMqReadQueue::readLine() {
         }
     }
 
-    exo::quit(exo::QuitStatus::NO_MORE_COMMANDS);
+    exo::noMoreCommands();
     return {};
 }
 

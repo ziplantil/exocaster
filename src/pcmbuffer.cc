@@ -30,8 +30,8 @@ DEALINGS IN THE SOFTWARE.
 #include <utility>
 
 #include "log.hh"
-#include "server.hh"
 #include "pcmbuffer.hh"
+#include "server.hh"
 
 namespace exo {
 
@@ -102,7 +102,7 @@ void PcmBuffer::writePcm(std::span<const exo::byte> data) {
                     waitRel_ * pcmFormat_.estimateDuration(data.size()));
     std::size_t written = pcm_.writeTimed(data.begin(), data.size(), timeout);
     if (written < data.size()) {
-        if (exo::shouldRun(exo::QuitStatus::QUITTING))
+        if (exo::shouldRun())
             EXO_LOG("buffer overrun: %zu < %zu, waited %0.5f s",
                     written, data.size(), timeout);
     }
@@ -127,8 +127,8 @@ void PcmBuffer::writePcm(std::span<const exo::byte> data) {
 
 void PcmBuffer::close() noexcept {
     closed_ = true;
-    hasPcm_.notify_all();
     pcm_.close();
+    hasPcm_.notify_all();
 }
 
 bool PcmBuffer::closed() const noexcept {

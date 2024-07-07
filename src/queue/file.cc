@@ -32,6 +32,7 @@ DEALINGS IN THE SOFTWARE.
 #include "queue/queue.hh"
 #include "queue/queueutil.hh"
 #include "server.hh"
+#include <system_error>
 
 namespace exo {
 
@@ -48,31 +49,27 @@ exo::FileReadQueue::FileReadQueue(const exo::ConfigObject& config,
         path = cfg::namedString(config, "file");
     }
 
-    file_.exceptions(std::ifstream::badbit | std::ifstream::failbit);
+    file_.exceptions();
     file_.open(path, std::ios::in);
-    file_.exceptions(std::ifstream::badbit);
-}
-
-static std::ifstream& blockableGetline_(std::ifstream& stream,
-                                        char* buffer, std::size_t size) {
-    stream.getline(buffer, size);
-    return stream;
+    if (file_.fail() || file_.bad())
+        throw std::system_error(errno, std::generic_category(),
+                    "file queue error: " + path);
 }
 
 exo::ConfigObject exo::FileReadQueue::readLine() {
-    for (;;) {
-        auto stream = exo::LineInputStream<std::ifstream, blockableGetline_>(file_);
+    while (exo::acceptsCommands()) {
+        auto stream = exo::LineInputStream(file_);
         if (file_.eof()) {
             EXO_LOG("file ran out of commands, "
                     "will exit after remaining commands are done");
-            exo::quit(exo::QuitStatus::NO_MORE_COMMANDS);
-            return exo::ConfigObject{};
+            exo::noMoreCommands();
+            return {};
         }
         if (file_.bad()) {
             EXO_LOG("file read error, cannot continue, "
                     "will exit after remaining commands are done");
-            exo::quit(exo::QuitStatus::NO_MORE_COMMANDS);
-            return exo::ConfigObject{};
+            exo::noMoreCommands();
+            return {};
         }
 
         try {
@@ -83,6 +80,9 @@ exo::ConfigObject exo::FileReadQueue::readLine() {
             continue;
         }
     }
+
+    exo::noMoreCommands();
+    return {};
 }
 
 void exo::FileReadQueue::close() {

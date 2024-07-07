@@ -62,13 +62,9 @@ static bool convertEvent(const exo::PublishedEvent& event,
 }
 
 void PublishQueue::run() {
-    while (EXO_LIKELY(exo::shouldRun(exo::QuitStatus::QUITTING))) {
+    while (EXO_LIKELY(exo::shouldRun())) {
         auto event = events_.get();
-        if (!event.has_value()) {
-            if (!exo::shouldRun(exo::QuitStatus::NO_MORE_EVENTS))
-                return;
-            continue;
-        }
+        if (!event.has_value()) return;
 
         if (exo::convertEvent(event.value(), queue_->write()))
             queue_->writeLine();

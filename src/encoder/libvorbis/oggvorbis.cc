@@ -154,16 +154,15 @@ void exo::OggVorbisEncoder::flushBuffers_() {
     unsigned long flushThreshold = pcmFormat_.rate * 2;
 
     while (vorbis_analysis_blockout(dsp, block) == 1
-                && EXO_LIKELY(exo::shouldRun(exo::QuitStatus::QUITTING))) {
+                    && EXO_LIKELY(exo::shouldRun())) {
         vorbis_analysis(block, nullptr);
         vorbis_bitrate_addblock(block);
 
         while (vorbis_bitrate_flushpacket(dsp, &packet) &&
-                    EXO_LIKELY(exo::shouldRun(exo::QuitStatus::QUITTING))) {
+                        EXO_LIKELY(exo::shouldRun())) {
             ogg_stream_packetin(stream, &packet);
 
-            while (EXO_LIKELY(!endOfStream_
-                        && exo::shouldRun(exo::QuitStatus::QUITTING))) {
+            while (EXO_LIKELY(!endOfStream_ && exo::shouldRun())) {
                 int result;
 
                 if (granulesInPage_ >= flushThreshold)
@@ -296,7 +295,7 @@ void exo::OggVorbisEncoder::pcmBlock(std::size_t frameCount,
     
     float** dspBuffer = vorbis_analysis_buffer(dsp, fitFrames);
     const auto pcmFormat = pcmFormat_;
-    while (count > 0 && EXO_LIKELY(exo::shouldRun(exo::QuitStatus::QUITTING))) {
+    while (count > 0 && EXO_LIKELY(exo::shouldRun())) {
         std::size_t size = std::min(count, sizeof(alignedBuffer));
         auto frames = size / pcmFormat_.bytesPerFrame();
 

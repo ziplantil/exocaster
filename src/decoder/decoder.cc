@@ -33,7 +33,6 @@ DEALINGS IN THE SOFTWARE.
 #include "decoder/decoder.hh"
 #include "decoder/silence.hh"
 #include "decoder/testcard.hh"
-#include "server.hh"
 
 #if EXO_LIBAVCODEC
 #include "decoder/libavcodec/lavc.hh"

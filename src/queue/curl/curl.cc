@@ -29,8 +29,8 @@ DEALINGS IN THE SOFTWARE.
 #include <stdexcept>
 #include <thread>
 
-#include "queue/curl/curl.hh"
 #include "log.hh"
+#include "queue/curl/curl.hh"
 #include "server.hh"
 #include "util.hh"
 #include "version.hh"
@@ -203,8 +203,7 @@ exo::ConfigObject exo::HttpGetReadQueue::readLine() {
 
         if (first)
             first = false;
-        else if (EXO_UNLIKELY(closed_ ||
-                    !exo::shouldRun(exo::QuitStatus::NO_MORE_COMMANDS)))
+        else if (EXO_UNLIKELY(closed_ || !exo::acceptsCommands()))
             break;
         else
             std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -241,7 +240,7 @@ exo::ConfigObject exo::HttpGetReadQueue::readLine() {
         }
     }
 
-    exo::quit(exo::QuitStatus::NO_MORE_COMMANDS);
+    exo::noMoreCommands();
     return {};
 }
 

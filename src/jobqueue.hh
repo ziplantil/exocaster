@@ -33,7 +33,6 @@ DEALINGS IN THE SOFTWARE.
 #include <mutex>
 
 #include "buffer.hh"
-#include "log.hh"
 #include "server.hh"
 #include "util.hh"
 
@@ -63,7 +62,7 @@ class JobQueue {
         std::unique_lock runningLock(runningJob_, std::defer_lock);
         std::unique_lock initLock(initJob_, std::defer_lock);
         std::unique_lock waitingLock(waitingJob_, std::defer_lock);
-        while (exo::quitStatus < exo::QuitStatus::NO_MORE_JOBS) {
+        while (exo::shouldRun()) {
             waitingLock.lock();
             std::optional<exo::QueuedJob<T>> maybeJob = jobs_.get();
             if (!maybeJob.has_value()) {
@@ -95,12 +94,15 @@ public:
         for (std::size_t i = 0; i < threadCount; ++i)
             threads_.emplace_back([this]() { runJobs(); });
     }
+    
+    void close() {
+        jobs_.close();
+    }
 
     void stop() {
-        jobs_.close();
+        close();
         for (auto& thread : threads_)
             thread.join();
-        threads_.clear();
     }
 };
 

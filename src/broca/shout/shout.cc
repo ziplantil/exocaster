@@ -51,6 +51,19 @@ static void shoutError_(const char* file, std::size_t lineno,
 #define EXO_SHOUT_ERROR(fn, shout_) \
     exo::shoutError_(__FILE__, __LINE__, fn, shout_)
 
+static void shoutCopyMetadata(shout_t* shout, const char* shoutMeta,
+                              const exo::ConfigObject& config,
+                              const char* key) {
+    if (cfg::hasString(config, key)) {
+        auto str = cfg::namedString(config, key);
+        if (shout_set_meta(shout, shoutMeta, str.c_str())
+                            != SHOUTERR_SUCCESS) {
+            EXO_SHOUT_ERROR("shout_set_meta", shout);
+            throw std::runtime_error("shout_set_meta failed");
+        }
+    }
+}
+
 exo::ShoutBroca::ShoutBroca(const exo::ConfigObject& config,
                std::shared_ptr<exo::PacketRingBuffer> source,
                const exo::StreamFormat& streamFormat,
@@ -130,6 +143,11 @@ exo::ShoutBroca::ShoutBroca(const exo::ConfigObject& config,
         EXO_SHOUT_ERROR("shout_set_content_format", shout_);
         throw std::runtime_error("shout_set_content_format failed");
     }
+
+    shoutCopyMetadata(shout_, SHOUT_META_NAME, config, "name");
+    shoutCopyMetadata(shout_, SHOUT_META_GENRE, config, "genre");
+    shoutCopyMetadata(shout_, SHOUT_META_DESCRIPTION, config, "description");
+    shoutCopyMetadata(shout_, SHOUT_META_URL, config, "url");
 }
 
 exo::ShoutBroca::~ShoutBroca() noexcept {
@@ -159,7 +177,7 @@ void exo::ShoutBroca::runImpl() {
     bool quitting = false;
     exo::byte buffer[exo::BaseBroca::DEFAULT_BROCA_BUFFER];
 
-    while (EXO_LIKELY(exo::shouldRun(exo::QuitStatus::QUITTING))) {
+    while (EXO_LIKELY(exo::shouldRun())) {
         err = shout_open(shout_);
         if (err != SHOUTERR_SUCCESS) {
             EXO_SHOUT_ERROR("shout_open", shout_);
@@ -167,15 +185,14 @@ void exo::ShoutBroca::runImpl() {
             continue;
         }
 
-        while (EXO_LIKELY(exo::shouldRun(exo::QuitStatus::QUITTING))) {
+        while (EXO_LIKELY(exo::shouldRun())) {
             auto packet = source_->readPacket();
             if (!packet.has_value()) {
                 quitting = true;
                 break;
             }
 
-            while (packet->hasData() && EXO_LIKELY(
-                        exo::shouldRun(exo::QuitStatus::QUITTING))) {
+            while (packet->hasData() && EXO_LIKELY(exo::shouldRun())) {
                 std::size_t n = packet->readSome(buffer, sizeof(buffer));
                 if (!n) {
                     if (source_->closed()) {

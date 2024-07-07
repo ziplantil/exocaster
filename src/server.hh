@@ -29,21 +29,20 @@ DEALINGS IN THE SOFTWARE.
 #ifndef SERVER_HH
 #define SERVER_HH
 
+#include <atomic>
+
 namespace exo {
 
-enum class QuitStatus {
-    RUNNING,
-    NO_MORE_COMMANDS,
-    NO_MORE_JOBS,
-    NO_MORE_EVENTS,
-    NO_MORE_PACKETS,
-    QUITTING
-};
+extern std::atomic_flag terminating_;
+extern std::atomic_flag outOfCommands_;
 
-extern exo::QuitStatus quitStatus;
-
-bool shouldRun(exo::QuitStatus status);
-void quit(exo::QuitStatus status);
+inline bool shouldRun() noexcept {
+    return !terminating_.test();
+}
+inline bool acceptsCommands() noexcept {
+    return !outOfCommands_.test();
+}
+void noMoreCommands();
 
 } // namespace exo
 

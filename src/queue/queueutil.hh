@@ -34,22 +34,13 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
-template <typename T, typename C = typename T::char_type>
-static T& getline_(T& stream, C* buffer, std::size_t size) {
-    return stream.getline(buffer, size);
-}
-
-template <typename T = std::istream>
-using getline = T& (*)(T&, char*, std::size_t);
-
-template <typename T = std::istream, getline<T> F = exo::getline_>
 class LineInputStreamBuf_ : public std::streambuf {
-    T& stream_;
+    std::istream& stream_;
     char tmp_[256];
     bool eof_{false};
 
 public:
-    LineInputStreamBuf_(T& stream) : stream_(stream) { }
+    LineInputStreamBuf_(std::istream& stream) : stream_(stream) { }
 
     int underflow() {
         if (!eof_ && this->gptr() == this->egptr()) {
@@ -61,7 +52,7 @@ public:
             if (exceptions != intendedExceptions)
                 stream_.exceptions(intendedExceptions);
 
-            F(stream_, tmp_, sizeof(tmp_));
+            stream_.getline(tmp_, sizeof(tmp_));
             if (stream_.eof())
                 size = std::strlen(tmp_); // reached eof
             else if (stream_.fail()) {
@@ -86,19 +77,17 @@ public:
     }
 };
 
-template <typename T = std::istream, getline<T> F = exo::getline_>
 class LineInputStreamWithBuf_ {
 protected:
-    exo::LineInputStreamBuf_<T, F> buf_;
-    LineInputStreamWithBuf_(T& buf): buf_(buf) {}
+    exo::LineInputStreamBuf_ buf_;
+    LineInputStreamWithBuf_(std::istream& buf): buf_(buf) {}
 };
 
-template <typename T = std::istream, getline<T> F = exo::getline_>
-class LineInputStream : virtual LineInputStreamWithBuf_<T, F>,
+class LineInputStream : virtual LineInputStreamWithBuf_,
                         public std::istream {
 public:
-    LineInputStream(T& input)
-        : LineInputStreamWithBuf_<T, F>(input)
+    LineInputStream(std::istream& input)
+        : LineInputStreamWithBuf_(input)
         , std::ios(&this->buf_)
         , std::istream(&this->buf_) {}
 };

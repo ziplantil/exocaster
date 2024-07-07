@@ -13,11 +13,16 @@ A JSON object with the following fields:
     * `http`: HTTP
     * `icy`: ICY
     * `roaraudio`: RoarAudio
-* `host`: The host to connect to, as a string.
-* `port`: The port to connect to, as an integer.
-* `user`: The user to connect as, as a string.
-* `password`: The password for authentication, as a string.
-* `mount`: The mountpoint to connect with, as a string.
+* `host` (required): The host to connect to, as a string.
+* `port` (required): The port to connect to, as an integer.
+* `user` (required): The user to connect as, as a string.
+* `password` (required): The password for authentication, as a string.
+* `mount` (required): The mountpoint to connect with, as a string.
+* `name` (optional): The stream name, as a string. Stream metadata.
+* `genre` (optional): The stream genre, as a string. Stream metadata.
+* `description` (optional): The stream description, as a string.
+  Stream metadata.
+* `url` (optional): The stream URL, as a string. Stream metadata.
 
 ## Notes
 

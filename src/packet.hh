@@ -30,7 +30,6 @@ DEALINGS IN THE SOFTWARE.
 #define PACKET_HH
 
 #include <cstring>
-#include <functional>
 #include <optional>
 
 #include "buffer.hh"

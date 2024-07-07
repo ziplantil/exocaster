@@ -35,6 +35,7 @@ DEALINGS IN THE SOFTWARE.
 #include "pcmconvert.hh"
 #include "pcmtypes.hh"
 #include "random.hh"
+#include "server.hh"
 #include "unaligned.hh"
 
 extern "C" {
@@ -290,7 +291,7 @@ void exo::OggFlacEncoder::pcmBlock(std::size_t frameCount,
     FLAC__int32* dst = convBuffer.data();
     const exo::byte* src = data.data();
 
-    while (frames > 0) {
+    while (frames > 0 && EXO_LIKELY(exo::shouldRun())) {
         auto framesThisTime = std::min(frames, framesPerBuffer);
         auto samplesThisTime = framesThisTime * channels_;
         auto bytesThisTime = framesThisTime * bytesPerFrame;

@@ -33,11 +33,9 @@ DEALINGS IN THE SOFTWARE.
 #include <memory>
 #include <semaphore>
 
-#include "buffer.hh"
 #include "config.hh"
 #include "packet.hh"
 #include "streamformat.hh"
-#include "types.hh"
 
 namespace exo {
 

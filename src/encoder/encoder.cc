@@ -106,7 +106,7 @@ void BaseEncoder::run() {
     static_assert(buffer.size() >= exo::MAX_BYTES_PER_FRAME);
     bool track = false;
 
-    while (EXO_LIKELY(exo::shouldRun(exo::QuitStatus::QUITTING))) {
+    while (EXO_LIKELY(exo::shouldRun())) {
         std::shared_ptr<exo::Metadata> metadataPtr = source_->readMetadata();
         if (metadataPtr) {
             if (track) endTrack();
@@ -121,11 +121,12 @@ void BaseEncoder::run() {
             pcmBlock(n / pcmFormat_.bytesPerFrame(),
                      std::span<exo::byte>(buffer.begin(), n));
         } else if (EXO_UNLIKELY(source_->closed())) {
-            if (track) endTrack();
-            close();
-            return;
+            break;
         }
     }
+
+    if (track) endTrack();
+    close();
 }
 
 void BaseEncoder::close() {

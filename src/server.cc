@@ -50,8 +50,6 @@ namespace exo {
 
 std::counting_semaphore<exo::MAX_BROCAS> brocaCounter(0);
 
-exo::QuitStatus quitStatus = exo::QuitStatus::RUNNING;
-
 struct ServerParameters {
     std::string configFilePath;
 };
@@ -239,39 +237,25 @@ static auto startBroca(const std::unique_ptr<exo::BaseBroca>& broca) {
     return std::thread([&broca]() { broca->run(); });
 }
 
-static std::mutex quittingMutex_;
-static std::condition_variable quittingCondition_;
+std::atomic_flag terminating_;
+std::atomic_flag outOfCommands_;
 
-bool shouldRun(exo::QuitStatus status) {
-    return quitStatus < status;
-}
-
-void quit(exo::QuitStatus status) {
-    if (status < quitStatus) return;
-
-    std::unique_lock lock(quittingMutex_);
-    quitStatus = status;
-    lock.unlock();
-    exo::quittingCondition_.notify_all();
-}
-
-[[maybe_unused]] static void waitForQuit(exo::QuitStatus status) {
-    std::unique_lock lock(exo::quittingMutex_);
-    exo::quittingCondition_.wait(lock, [status]() {
-        return exo::quitStatus >= status;
-    });
+void noMoreCommands() {
+    outOfCommands_.test_and_set();
+    outOfCommands_.notify_all();
 }
 
 void Server::readCommands_() {
     EXO_LOG("now accepting commands");
 
-    while (exo::shouldRun(exo::QuitStatus::NO_MORE_COMMANDS)) {
+    while (!outOfCommands_.test()) {
         auto command = commandQueue_->nextCommand();
-        if (!exo::shouldRun(exo::QuitStatus::NO_MORE_COMMANDS))
+        if (outOfCommands_.test())
             break;
 
-        if (command.cmd == "quit") {
-            exo::quit(exo::QuitStatus::NO_MORE_COMMANDS);
+        if (command.cmd == "quit" || !shouldRun()) {
+            exo::noMoreCommands();
+            close();
             break;
         }
 
@@ -301,32 +285,34 @@ void Server::run() {
     jobs_->start(JOB_WORKER_COUNT);
     publisher_->start();
     readCommandsThread_ = std::thread([this]() { this->readCommands_(); });
-    exo::waitForQuit(exo::QuitStatus::NO_MORE_COMMANDS);
+    while (!outOfCommands_.test())
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    if (exo::shouldRun(exo::QuitStatus::NO_MORE_JOBS))
-        EXO_LOG("letting existing jobs finish...");
-    else
+    if (exo::shouldRun()) {
+        // wait for jobs to finish
+        jobs_->close();
+        jobs_->stop();
         pcm_->close();
-    jobs_->stop();
-    exo::quit(exo::QuitStatus::NO_MORE_JOBS);
-    pcm_->close();
+        // wait for encoders and brocas to finish
+        for (auto& thread: encoders) thread.join();
+        for (const auto& _: broca_) brocaCounter.acquire();
+        for (auto& thread: brocas) thread.join();
+        // wait for publisher to finish
+        publisher_->close();
+    } else {
+        pcm_->close();
+        for (auto& encoder: enc_) encoder->close();
+        publisher_->close();
 
-    // wait for brocas to finish
-    for (const auto& _: broca_)
-        brocaCounter.acquire();
+        jobs_->stop();
+        for (auto& thread: encoders) thread.join();
+        for (auto& thread: brocas) thread.join();
+    }
 
-    exo::quit(exo::QuitStatus::NO_MORE_EVENTS);
-    publisher_->close();
-
-    exo::quit(exo::QuitStatus::NO_MORE_PACKETS);
-
-    for (auto& thread: encoders) thread.join();
-    for (auto& thread: brocas) thread.join();
-    // wait for publishers to finish
-    exo::quit(exo::QuitStatus::QUITTING);
     publisher_->stop();
     // detach the command queue thread, it doesn't matter anymore
     readCommandsThread_.detach();
+    EXO_LOG("stopping exocaster " EXO_VERSION);
 }
 
 void Server::close() {
@@ -342,9 +328,8 @@ static void exitGracefullyOnSignal(int signal) {
         EXO_LOG("received SIGINT, quitting.");
     if (signal == SIGTERM)
         EXO_LOG("received SIGTERM, quitting.");
-    quitStatus = exo::QuitStatus::QUITTING;
-    server->close();
-    exo::quittingCondition_.notify_all();
+    outOfCommands_.test_and_set();
+    terminating_.test_and_set();
 }
 
 static void catchSignals() {
@@ -366,11 +351,19 @@ static void catchSignals() {
     sigaction(SIGTERM, &act, NULL);
 }
 
+static std::thread exitWatchdog;
+
 static void runServer(const exo::ServerParameters& params) {
     exo::ServerConfig config = exo::readConfig(params);
     server = std::make_unique<exo::Server>(std::move(config));
     catchSignals();
     server->run();
+    exitWatchdog = std::thread([]() {
+        std::this_thread::sleep_for(std::chrono::seconds(5));
+        EXO_LOG("exit watchdog: hung up on exit, terminating.");
+        std::terminate();
+    });
+    exitWatchdog.detach();
 }
 
 } // namespace exo

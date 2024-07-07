@@ -33,17 +33,24 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
+PcmEncoder::PcmEncoder(const exo::ConfigObject& config,
+                       std::shared_ptr<exo::PcmBuffer> source,
+                       exo::PcmFormat pcmFormat):
+            BaseEncoder(source, pcmFormat) {
+    metadata_ = cfg::namedBoolean(config, "metadata", false);
+}
+        
 exo::StreamFormat PcmEncoder::streamFormat() const noexcept {
     return pcmFormat_;
 }
 
 void PcmEncoder::startTrack(const exo::Metadata& metadata) {
-#if EXO_DUMP_METADATA
-    EXO_LOG("pcm metadata dump");
-    for (const auto& [key, value]: metadata) {
-        EXO_LOG("pcm metadata : %s=%s", key.c_str(), value.c_str());
+    if (metadata_) {
+        EXO_LOG("pcm metadata dump");
+        for (const auto& [key, value]: metadata) {
+            EXO_LOG("pcm metadata : %s=%s", key.c_str(), value.c_str());
+        }
     }
-#endif
 }
 
 void PcmEncoder::pcmBlock(std::size_t frameCount,

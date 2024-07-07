@@ -55,19 +55,20 @@ FileBroca::FileBroca(const exo::ConfigObject& config,
             flags |= std::ios::app;
     }
 
-    file_.exceptions(std::ios::failbit | std::ios::badbit);
-    file_.open(path, flags);
     file_.exceptions();
+    file_.open(path, flags);
+    if (file_.fail() || file_.bad())
+        throw std::system_error(errno, std::generic_category(),
+                    "file broca error: " + path);
 }
 
 void FileBroca::runImpl() {
     exo::byte buffer[exo::BaseBroca::DEFAULT_BROCA_BUFFER];
-    while (exo::shouldRun(exo::QuitStatus::QUITTING)) {
+    while (exo::shouldRun()) {
         auto packet = source_->readPacket();
         if (!packet.has_value()) break;
 
-        while (packet->hasData() && EXO_LIKELY(
-                    exo::shouldRun(exo::QuitStatus::QUITTING))) {
+        while (packet->hasData() && EXO_LIKELY(exo::shouldRun())) {
             std::size_t n = packet->readSome(buffer, sizeof(buffer));
             if (!n) {
                 if (source_->closed())

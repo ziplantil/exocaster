@@ -30,11 +30,14 @@ DEALINGS IN THE SOFTWARE.
 #define BROCA_DISCARD_HH
 
 #include "broca/broca.hh"
+#include "fclock.hh"
 
 namespace exo {
 
 class DiscardBroca: public exo::BaseBroca {
     bool log_;
+    bool wait_;
+    exo::FrameClock<> frameClock_;
 
 protected:
     void runImpl();

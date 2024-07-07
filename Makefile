@@ -17,10 +17,9 @@ LDFLAGS=
 endif
 
 CFLAGS := $(CFLAGS) -MMD -MP
-CXXFLAGS := $(CXXFLAGS) -Iincludes -Isrc -Ivendor -std=c++20 -MMD -MP \
-		    $(ZEROMQ_CXXFLAGS)
+CXXFLAGS := $(CXXFLAGS) -Iincludes -Isrc -Ivendor -std=c++20 -MMD -MP
 LDFLAGS := $(LDFLAGS)
-LDLIBS = -lm -lpthread $(ZEROMQ_LDLIBS)
+LDLIBS = -lm -lpthread
 
 TARGET := build/exocaster
 OBJS := src/queue/queue.o \

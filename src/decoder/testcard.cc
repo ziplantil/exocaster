@@ -47,8 +47,7 @@ void TestcardDecodeJob::run(std::shared_ptr<exo::PcmSplitter> sink) {
     double x = 0.0;
 
     sink->metadata(command_, {});
-    while (EXO_LIKELY(exo::shouldRun(exo::QuitStatus::NO_MORE_JOBS)
-                && frames_ > 0)) {
+    while (EXO_LIKELY(exo::shouldRun() && frames_ > 0)) {
         std::size_t framesThisBlock = std::min(frames_, framesPerBlock);
         exo::byte* destination = block;
 

@@ -472,7 +472,7 @@ bool LavcDecodeJob::setupFilter_() {
 int LavcDecodeJob::filterFrames_(std::shared_ptr<exo::PcmSplitter>& sink,
                                  bool flush) {
     int ret;
-    while (EXO_LIKELY(exo::shouldRun(exo::QuitStatus::NO_MORE_JOBS)) && 
+    while (EXO_LIKELY(exo::shouldRun()) && 
             (ret = av_buffersink_get_frame(filterSinkContext_,
                                             filterFrame_)) >= 0) {
         std::size_t dataSize = filterFrame_->nb_samples
@@ -805,7 +805,7 @@ void LavcDecodeJob::run(std::shared_ptr<exo::PcmSplitter> sink) {
     sink->metadata(command_, metadata_);
     int ret;
     while (EXO_LIKELY((ret = av_read_frame(formatContext_, packet_)) >= 0 &&
-            (exo::shouldRun(exo::QuitStatus::NO_MORE_JOBS)))) {
+                    (exo::shouldRun()))) {
         if (packet_->stream_index == streamIndex_) {
             if (EXO_UNLIKELY((ret = avcodec_send_packet(
                         codecContext_, packet_)) < 0)) {

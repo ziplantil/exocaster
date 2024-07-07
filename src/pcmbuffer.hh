@@ -120,6 +120,7 @@ public:
 
     inline void close() {
         for (auto& buffer: buffers_) buffer->close();
+        buffers_.clear();
     }
 };
 

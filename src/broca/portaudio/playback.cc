@@ -159,7 +159,7 @@ int PortAudioBroca::streamCallback(const void* input, void* output,
                                        frameCount * bytesPerFrame_);
     if (EXO_UNLIKELY(!n))
         return paComplete;
-    if (EXO_UNLIKELY(!exo::shouldRun(exo::QuitStatus::QUITTING)))
+    if (EXO_UNLIKELY(!exo::shouldRun()))
         return paComplete;
     return paContinue;
 }

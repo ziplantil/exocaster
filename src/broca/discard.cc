@@ -38,21 +38,31 @@ namespace exo {
 DiscardBroca::DiscardBroca(const exo::ConfigObject& config,
                  std::shared_ptr<exo::PacketRingBuffer> source,
                  const exo::StreamFormat& streamFormat,
-                 unsigned long frameRate): BaseBroca(source, frameRate) {
+                 unsigned long frameRate):
+                        BaseBroca(source, frameRate),
+                        frameClock_(frameRate) {
     log_ = cfg::namedBoolean(config, "log", false);
+    wait_ = cfg::namedBoolean(config, "wait", false);
 }
 
 void DiscardBroca::runImpl() {
     exo::byte buffer[exo::BaseBroca::DEFAULT_BROCA_BUFFER];
-    while (exo::shouldRun(exo::QuitStatus::QUITTING)) {
+    while (exo::shouldRun()) {
         auto packet = source_->readPacket();
         if (!packet.has_value()) break;
 
-        if (log_)
-            EXO_LOG("discarding %zu bytes (%zu frames)",
-                    packet->header.dataSize, packet->header.frameCount);
-        while (packet->hasData() && EXO_LIKELY(
-                    exo::shouldRun(exo::QuitStatus::QUITTING))) {
+        if (log_) {
+            if (wait_)
+                EXO_LOG("discarding %zu bytes (%zu frames, "
+                                "waiting approx %4.4f seconds)",
+                        packet->header.dataSize, packet->header.frameCount,
+                        static_cast<double>(
+                                packet->header.frameCount) / frameRate_);
+            else
+                EXO_LOG("discarding %zu bytes (%zu frames)",
+                        packet->header.dataSize, packet->header.frameCount);
+        }
+        while (packet->hasData() && EXO_LIKELY(exo::shouldRun())) {
             std::size_t n = packet->readSome(buffer, sizeof(buffer));
             if (!n) {
                 if (source_->closed())
@@ -60,6 +70,11 @@ void DiscardBroca::runImpl() {
                 else   
                     continue;
             }
+        }
+
+        if (wait_) {
+            frameClock_.update(packet->header.frameCount);
+            frameClock_.sleepIf(10);
         }
     }
 }
