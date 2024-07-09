@@ -35,13 +35,14 @@ DEALINGS IN THE SOFTWARE.
 namespace exo {
 
 template <typename T, typename P>
-requires (std::is_same_v<P, void> || sizeof(P) == 1)
+    requires(std::is_same_v<P, void> || sizeof(P) == 1)
 T alignedLoad(const P* ptr) {
     return *reinterpret_cast<const T*>(ptr);
 }
 
 template <typename T, typename P>
-requires (std::is_trivial_v<T> && (std::is_same_v<P, void> || sizeof(P) == 1))
+    requires(std::is_trivial_v<T> &&
+             (std::is_same_v<P, void> || sizeof(P) == 1))
 T unalignedLoad(const P* ptr) {
     T val;
     std::memcpy(&val, ptr, sizeof(val));
@@ -49,13 +50,14 @@ T unalignedLoad(const P* ptr) {
 }
 
 template <typename T, typename P>
-requires (std::is_same_v<P, void> || sizeof(P) == 1)
+    requires(std::is_same_v<P, void> || sizeof(P) == 1)
 void alignedStore(P* ptr, const T& val) {
     *reinterpret_cast<T*>(ptr) = val;
 }
 
 template <typename T, typename P>
-requires (std::is_trivial_v<T> && (std::is_same_v<P, void> || sizeof(P) == 1))
+    requires(std::is_trivial_v<T> &&
+             (std::is_same_v<P, void> || sizeof(P) == 1))
 void unalignedStore(P* ptr, const T& val) {
     std::memcpy(ptr, &val, sizeof(val));
 }

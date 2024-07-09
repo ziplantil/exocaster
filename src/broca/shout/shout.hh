@@ -30,8 +30,10 @@ DEALINGS IN THE SOFTWARE.
 #define BROCA_SHOUT_SHOUT_HH
 
 #include "broca/broca.hh"
+#include "fclock.hh"
 #include "packet.hh"
 #include "refcount.hh"
+#include "slot.hh"
 #include "util.hh"
 
 extern "C" {
@@ -40,26 +42,35 @@ extern "C" {
 
 namespace exo {
 
-struct ShoutGlobal: exo::GlobalLibrary<exo::ShoutGlobal> {
-    inline void init() { shout_init(); }
-    inline void quit() { shout_shutdown(); }
+struct ShoutGlobal : exo::GlobalLibrary<exo::ShoutGlobal> {
+    void init();
+    void quit();
 };
 
-class ShoutBroca: public exo::BaseBroca {
-private:
-    exo::ShoutGlobal global_;
-    shout_t* shout_{nullptr};
+struct Shout : public PointerSlot<Shout, shout_t> {
+    using PointerSlot::PointerSlot;
+    Shout();
+    ~Shout() noexcept;
+    EXO_DEFAULT_NONCOPYABLE(Shout)
+};
 
-protected:
+class ShoutBroca : public exo::BaseBroca {
+  private:
+    exo::ShoutGlobal global_;
+    Shout shout_;
+    bool selfSync_;
+    exo::FrameClock<> syncClock_;
+    unsigned long syncThreshold_;
+
+    void handleOutOfBandMetadata_(exo::PacketRingBuffer::PacketRead& packet);
+
+  protected:
     void runImpl();
 
-public:
+  public:
     ShoutBroca(const exo::ConfigObject& config,
                std::shared_ptr<exo::PacketRingBuffer> source,
-               const exo::StreamFormat& streamFormat,
-               unsigned long frameRate);
-    EXO_DEFAULT_NONCOPYABLE(ShoutBroca)
-    ~ShoutBroca() noexcept;
+               const exo::StreamFormat& streamFormat, unsigned long frameRate);
 };
 
 } // namespace exo

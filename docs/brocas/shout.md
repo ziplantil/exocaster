@@ -23,6 +23,8 @@ A JSON object with the following fields:
 * `description` (optional): The stream description, as a string.
   Stream metadata.
 * `url` (optional): The stream URL, as a string. Stream metadata.
+* `selfsync` (optional): A boolean value. If `true`, Exocaster uses its own
+  sync, rather than relying on that provided by libshout. (Default: `false`)
 
 ## Notes
 
@@ -30,3 +32,5 @@ The supported codecs are MP3 and Ogg Vorbis. Ogg FLAC support is experimental
 and depends on a modified version of libshout that can accommodate
 OGG FLAC streams. It must be enabled when compiling Exocaster with the
 `EXO_SHOUT_ALLOW_OGGFLAC` define.
+
+The `shout` broca supports out-of-band metadata used by e.g. the `mp3` encoder.

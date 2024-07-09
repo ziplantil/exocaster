@@ -36,27 +36,24 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
-template <typename T>
-class GlobalLibrary {
+template <typename T> class GlobalLibrary {
     inline static std::size_t count_{0};
     inline static std::mutex mutex_;
 
-    void callInit_() {
-        static_cast<T*>(this)->init();
-    }
-    void callQuit_() noexcept {
-        static_cast<T*>(this)->quit();
-    }
+    void callInit_() { static_cast<T*>(this)->init(); }
+    void callQuit_() noexcept { static_cast<T*>(this)->quit(); }
 
-public:
+  public:
     GlobalLibrary() {
         std::lock_guard lock(mutex_);
-        if (!count_++) callInit_();
+        if (!count_++)
+            callInit_();
     }
     EXO_DEFAULT_NONCOPYABLE(GlobalLibrary);
     ~GlobalLibrary() noexcept {
         std::lock_guard lock(mutex_);
-        if (!--count_) callQuit_();
+        if (!--count_)
+            callQuit_();
     }
 };
 

@@ -34,15 +34,15 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
-class DiscardBroca: public exo::BaseBroca {
+class DiscardBroca : public exo::BaseBroca {
     bool log_;
     bool wait_;
     exo::FrameClock<> frameClock_;
 
-protected:
+  protected:
     void runImpl();
 
-public:
+  public:
     DiscardBroca(const exo::ConfigObject& config,
                  std::shared_ptr<exo::PacketRingBuffer> source,
                  const exo::StreamFormat& streamFormat,

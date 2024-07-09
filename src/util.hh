@@ -38,9 +38,7 @@ DEALINGS IN THE SOFTWARE.
 #define EXO_UNREACHABLE __builtin_unreachable()
 #else
 #include <exception>
-[[noreturn]] inline void unreachable_() {
-    std::terminate();
-}
+[[noreturn]] inline void unreachable_() { std::terminate(); }
 
 #define EXO_UNREACHABLE exo::unreachable_()
 #endif
@@ -100,6 +98,8 @@ namespace exo {
 #define EXO_LIKELY(cond) (!!(cond))
 #define EXO_UNLIKELY(cond) (!!(cond))
 #endif
+
+#define EXO_STRINGIFY(x) #x
 
 } // namespace exo
 

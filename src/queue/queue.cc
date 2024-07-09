@@ -35,10 +35,8 @@ DEALINGS IN THE SOFTWARE.
 
 #if EXO_CURL
 #include "queue/curl/curl.hh"
-#define RQUEUE_DEFS_CURL                                                       \
-    RQUEUE_DEF(httpget, exo::HttpGetReadQueue)
-#define WQUEUE_DEFS_CURL                                                       \
-    WQUEUE_DEF(httppost, exo::HttpPostWriteQueue)
+#define RQUEUE_DEFS_CURL RQUEUE_DEF(httpget, exo::HttpGetReadQueue)
+#define WQUEUE_DEFS_CURL WQUEUE_DEF(httppost, exo::HttpPostWriteQueue)
 #else
 #define RQUEUE_DEFS_CURL
 #define WQUEUE_DEFS_CURL
@@ -46,10 +44,8 @@ DEALINGS IN THE SOFTWARE.
 
 #if EXO_ZEROMQ
 #include "queue/zeromq/zeromq.hh"
-#define RQUEUE_DEFS_ZEROMQ                                                     \
-    RQUEUE_DEF(zeromq, exo::ZeroMqReadQueue)
-#define WQUEUE_DEFS_ZEROMQ                                                     \
-    WQUEUE_DEF(zeromq, exo::ZeroMqWriteQueue)
+#define RQUEUE_DEFS_ZEROMQ RQUEUE_DEF(zeromq, exo::ZeroMqReadQueue)
+#define WQUEUE_DEFS_ZEROMQ WQUEUE_DEF(zeromq, exo::ZeroMqWriteQueue)
 #else
 #define RQUEUE_DEFS_ZEROMQ
 #define WQUEUE_DEFS_ZEROMQ
@@ -80,29 +76,28 @@ enum class WriteQueueImpl {
 };
 
 static std::unordered_map<std::string, exo::ReadQueueImpl> readQueues = {
-#define RQUEUE_DEF(N, T) { #N, exo::ReadQueueImpl::N },
+#define RQUEUE_DEF(N, T) {#N, exo::ReadQueueImpl::N},
     RQUEUE_DEFS
 #undef RQUEUE_DEF
 };
 
 static std::unordered_map<std::string, exo::WriteQueueImpl> writeQueues = {
-#define WQUEUE_DEF(N, T) { #N, exo::WriteQueueImpl::N },
+#define WQUEUE_DEF(N, T) {#N, exo::WriteQueueImpl::N},
     WQUEUE_DEFS
 #undef WQUEUE_DEF
 };
 
-std::unique_ptr<exo::BaseReadQueue> createReadQueue(
-                const std::string& type,
-                const exo::ConfigObject& config,
+std::unique_ptr<exo::BaseReadQueue>
+createReadQueue(const std::string& type, const exo::ConfigObject& config,
                 const std::string& instanceId) {
     auto it = readQueues.find(type);
 
     if (it != readQueues.end()) {
         switch (it->second) {
 #define RQUEUE_DEF(N, T)                                                       \
-        case exo::ReadQueueImpl::N:                                            \
-            return std::make_unique<T>(config, instanceId);
-        RQUEUE_DEFS
+    case exo::ReadQueueImpl::N:                                                \
+        return std::make_unique<T>(config, instanceId);
+            RQUEUE_DEFS
 #undef RQUEUE_DEF
         }
     }
@@ -110,18 +105,17 @@ std::unique_ptr<exo::BaseReadQueue> createReadQueue(
     throw exo::UnknownQueueError("unknown read queue '" + type + "'");
 }
 
-std::unique_ptr<exo::BaseWriteQueue> createWriteQueue(
-                const std::string& type,
-                const exo::ConfigObject& config,
-                const std::string& instanceId) {
+std::unique_ptr<exo::BaseWriteQueue>
+createWriteQueue(const std::string& type, const exo::ConfigObject& config,
+                 const std::string& instanceId) {
     auto it = writeQueues.find(type);
 
     if (it != writeQueues.end()) {
         switch (it->second) {
 #define WQUEUE_DEF(N, T)                                                       \
-        case exo::WriteQueueImpl::N:                                           \
-            return std::make_unique<T>(config, instanceId);
-        WQUEUE_DEFS
+    case exo::WriteQueueImpl::N:                                               \
+        return std::make_unique<T>(config, instanceId);
+            WQUEUE_DEFS
 #undef WQUEUE_DEF
         }
     }
@@ -131,21 +125,21 @@ std::unique_ptr<exo::BaseWriteQueue> createWriteQueue(
 
 void printReadQueueOptions(std::ostream& stream) {
     std::vector<std::string> options;
-    for (const auto& [key, _]: readQueues)
+    for (const auto& [key, _] : readQueues)
         options.push_back(key);
 
     std::sort(options.begin(), options.end());
-    for (const auto& key: options)
+    for (const auto& key : options)
         std::cout << " " << key;
 }
 
 void printWriteQueueOptions(std::ostream& stream) {
     std::vector<std::string> options;
-    for (const auto& [key, _]: writeQueues)
+    for (const auto& [key, _] : writeQueues)
         options.push_back(key);
 
     std::sort(options.begin(), options.end());
-    for (const auto& key: options)
+    for (const auto& key : options)
         std::cout << " " << key;
 }
 

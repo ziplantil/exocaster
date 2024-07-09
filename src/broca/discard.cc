@@ -36,11 +36,10 @@ DEALINGS IN THE SOFTWARE.
 namespace exo {
 
 DiscardBroca::DiscardBroca(const exo::ConfigObject& config,
-                 std::shared_ptr<exo::PacketRingBuffer> source,
-                 const exo::StreamFormat& streamFormat,
-                 unsigned long frameRate):
-                        BaseBroca(source, frameRate),
-                        frameClock_(frameRate) {
+                           std::shared_ptr<exo::PacketRingBuffer> source,
+                           const exo::StreamFormat& streamFormat,
+                           unsigned long frameRate)
+    : BaseBroca(source, frameRate), frameClock_(frameRate) {
     log_ = cfg::namedBoolean(config, "log", false);
     wait_ = cfg::namedBoolean(config, "wait", false);
 }
@@ -50,15 +49,16 @@ void DiscardBroca::runImpl() {
     frameClock_.reset();
     while (exo::shouldRun()) {
         auto packet = source_->readPacket();
-        if (!packet.has_value()) break;
+        if (!packet.has_value())
+            break;
 
         if (log_) {
             if (wait_)
                 EXO_LOG("discarding %zu bytes (%zu frames, "
-                                "waiting approx %4.4f seconds)",
+                        "waiting approx %4.4f seconds)",
                         packet->header.dataSize, packet->header.frameCount,
-                        static_cast<double>(
-                                packet->header.frameCount) / frameRate_);
+                        static_cast<double>(packet->header.frameCount) /
+                            frameRate_);
             else
                 EXO_LOG("discarding %zu bytes (%zu frames)",
                         packet->header.dataSize, packet->header.frameCount);

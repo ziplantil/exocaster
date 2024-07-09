@@ -29,15 +29,15 @@ DEALINGS IN THE SOFTWARE.
 #include <thread>
 #include <zmq.hpp>
 
-#include "queue/zeromq/zeromq.hh"
 #include "log.hh"
+#include "queue/zeromq/zeromq.hh"
 #include "server.hh"
 
 namespace exo {
 
 exo::ZeroMqReadQueue::ZeroMqReadQueue(const exo::ConfigObject& config,
                                       const std::string& instanceId)
-            : sock_(ctx_, zmq::socket_type::pull) {
+    : sock_(ctx_, zmq::socket_type::pull) {
     std::string address;
     if (cfg::isObject(config)) {
         if (!cfg::hasString(config, "address"))
@@ -55,7 +55,8 @@ exo::ConfigObject exo::ZeroMqReadQueue::readLine() {
     while (exo::acceptsCommands()) {
         auto res = sock_.recv(msg, zmq::recv_flags::none);
         if (!res.has_value()) {
-            if (closed_) break;
+            if (closed_)
+                break;
             std::this_thread::sleep_for(std::chrono::seconds(1));
             return {};
         }
@@ -80,7 +81,7 @@ void exo::ZeroMqReadQueue::close() {
 
 exo::ZeroMqWriteQueue::ZeroMqWriteQueue(const exo::ConfigObject& config,
                                         const std::string& instanceId)
-            : sock_(ctx_, zmq::socket_type::pub) {
+    : sock_(ctx_, zmq::socket_type::pub) {
     std::string address;
     if (cfg::isObject(config)) {
         if (!cfg::hasString(config, "address"))
@@ -88,8 +89,8 @@ exo::ZeroMqWriteQueue::ZeroMqWriteQueue(const exo::ConfigObject& config,
         address = cfg::namedString(config, "address");
         if (cfg::hasString(config, "topic"))
             topic_ = cfg::getString(config, "topic");
-        if (topic_.has_value() && cfg::hasBoolean(config, "topicId")
-                               && cfg::namedBoolean(config, "topicId"))
+        if (topic_.has_value() && cfg::hasBoolean(config, "topicId") &&
+            cfg::namedBoolean(config, "topicId"))
             topic_.value() += instanceId;
     } else {
         address = cfg::getString(config);
@@ -97,9 +98,7 @@ exo::ZeroMqWriteQueue::ZeroMqWriteQueue(const exo::ConfigObject& config,
     sock_.bind(address);
 }
 
-std::ostream& exo::ZeroMqWriteQueue::write() {
-    return buffer_;
-}
+std::ostream& exo::ZeroMqWriteQueue::write() { return buffer_; }
 
 void exo::ZeroMqWriteQueue::writeLine() {
     auto str = std::move(buffer_).str();

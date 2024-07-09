@@ -26,9 +26,9 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
+#include "queue/commandqueue.hh"
 #include "config.hh"
 #include "log.hh"
-#include "queue/commandqueue.hh"
 #include "server.hh"
 
 namespace exo {
@@ -49,17 +49,13 @@ exo::Command exo::CommandQueue::nextCommand() {
             continue;
         }
 
-        return exo::Command {
-            .cmd = cfg::namedString(configObject, "cmd"),
-            .param = cfg::key(configObject, "param"),
-            .raw = configObject
-        };
+        return exo::Command{.cmd = cfg::namedString(configObject, "cmd"),
+                            .param = cfg::key(configObject, "param"),
+                            .raw = configObject};
     }
     return exo::Command{};
 };
 
-void exo::CommandQueue::close() {
-    below_->close();
-}
+void exo::CommandQueue::close() { below_->close(); }
 
 } // namespace exo

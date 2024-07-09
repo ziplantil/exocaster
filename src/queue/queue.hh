@@ -39,43 +39,41 @@ DEALINGS IN THE SOFTWARE.
 namespace exo {
 
 class UnknownQueueError : public std::logic_error {
-public:
+  public:
     using std::logic_error::logic_error;
 };
 
 class BaseReadQueue {
-public:
+  public:
     /*
     BaseReadQueue(const exo::ConfigObject& config,
                   const std::string& instanceId);
     */
-    inline BaseReadQueue() { }
+    inline BaseReadQueue() {}
     EXO_DEFAULT_NONCOPYABLE_VIRTUAL_DESTRUCTOR(BaseReadQueue)
 
     virtual exo::ConfigObject readLine() = 0;
-    virtual void close() { }
+    virtual void close() {}
 };
 
 class BaseWriteQueue {
-public:
+  public:
     /*
     BaseWriteQueue(const exo::ConfigObject& config);
     */
-    inline BaseWriteQueue() { }
+    inline BaseWriteQueue() {}
     EXO_DEFAULT_NONCOPYABLE_VIRTUAL_DESTRUCTOR(BaseWriteQueue)
 
     virtual std::ostream& write() = 0;
     virtual void writeLine() = 0;
 };
 
-std::unique_ptr<exo::BaseReadQueue> createReadQueue(
-                const std::string& type,
-                const exo::ConfigObject& config,
+std::unique_ptr<exo::BaseReadQueue>
+createReadQueue(const std::string& type, const exo::ConfigObject& config,
                 const std::string& instanceId);
-std::unique_ptr<exo::BaseWriteQueue> createWriteQueue(
-                const std::string& type,
-                const exo::ConfigObject& config,
-                const std::string& instanceId);
+std::unique_ptr<exo::BaseWriteQueue>
+createWriteQueue(const std::string& type, const exo::ConfigObject& config,
+                 const std::string& instanceId);
 
 void printReadQueueOptions(std::ostream& stream);
 void printWriteQueueOptions(std::ostream& stream);

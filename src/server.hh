@@ -36,12 +36,8 @@ namespace exo {
 extern std::atomic_flag terminating_;
 extern std::atomic_flag outOfCommands_;
 
-inline bool shouldRun() noexcept {
-    return !terminating_.test();
-}
-inline bool acceptsCommands() noexcept {
-    return !outOfCommands_.test();
-}
+inline bool shouldRun() noexcept { return !terminating_.test(); }
+inline bool acceptsCommands() noexcept { return !outOfCommands_.test(); }
 void noMoreCommands();
 
 } // namespace exo

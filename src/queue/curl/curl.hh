@@ -49,35 +49,33 @@ struct CURLDeleter {
 
 using CURLPtr = std::unique_ptr<CURL, CURLDeleter>;
 
-struct CurlGlobal: exo::GlobalLibrary<exo::CurlGlobal> {
+struct CurlGlobal : exo::GlobalLibrary<exo::CurlGlobal> {
     inline void init() {
         auto code = curl_global_init(CURL_GLOBAL_DEFAULT);
-        if (code) throw std::runtime_error("curl_global_init failed");
+        if (code)
+            throw std::runtime_error("curl_global_init failed");
     }
-    inline void quit() {
-        curl_global_cleanup();
-    }
+    inline void quit() { curl_global_cleanup(); }
 };
 
 class HttpClient {
-protected:
+  protected:
     exo::CurlGlobal global_;
     std::string url_;
     std::unordered_map<std::string, std::string> headers_;
 
-public:
-    HttpClient(const exo::ConfigObject& config,
-               const std::string& instanceId);
+  public:
+    HttpClient(const exo::ConfigObject& config, const std::string& instanceId);
     EXO_DEFAULT_NONCOPYABLE_DEFAULT_DESTRUCTOR(HttpClient);
 
     inline const auto& url() const noexcept { return url_; }
     inline const auto& headers() const noexcept { return headers_; }
 };
 
-class HttpGetReadQueue: public BaseReadQueue, private HttpClient {
+class HttpGetReadQueue : public BaseReadQueue, private HttpClient {
     bool closed_{false};
 
-public:
+  public:
     HttpGetReadQueue(const exo::ConfigObject& config,
                      const std::string& instanceId);
 
@@ -85,10 +83,10 @@ public:
     void close();
 };
 
-class HttpPostWriteQueue: public BaseWriteQueue, private HttpClient {
+class HttpPostWriteQueue : public BaseWriteQueue, private HttpClient {
     std::ostringstream buffer_;
 
-public:
+  public:
     HttpPostWriteQueue(const exo::ConfigObject& config,
                        const std::string& instanceId);
 

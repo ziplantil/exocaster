@@ -53,21 +53,21 @@ void TestcardDecodeJob::run(std::shared_ptr<exo::PcmSplitter> sink) {
 
         for (std::size_t i = 0; i < framesThisBlock; ++i) {
             double v = std::sin(x + f * i) * 0.75;
-            for (unsigned j = 0;
-                        j < exo::channelCount(pcmFormat_.channels); ++j)
-                destination = exo::outputSample(destination,
-                                                pcmFormat_.sample, v);
+            for (unsigned j = 0; j < exo::channelCount(pcmFormat_.channels);
+                 ++j)
+                destination =
+                    exo::outputSample(destination, pcmFormat_.sample, v);
         }
         x = std::fmod(x + f * framesThisBlock, tau);
 
         frames_ -= framesThisBlock;
-        sink->pcm({ block, static_cast<std::size_t>(destination - block) });
+        sink->pcm({block, static_cast<std::size_t>(destination - block)});
     }
 }
 
-std::optional<std::unique_ptr<BaseDecodeJob>> TestcardDecoder::createJob(
-            const exo::ConfigObject& request,
-            std::shared_ptr<exo::ConfigObject> command) {
+std::optional<std::unique_ptr<BaseDecodeJob>>
+TestcardDecoder::createJob(const exo::ConfigObject& request,
+                           std::shared_ptr<exo::ConfigObject> command) {
     if (!cfg::isFloat(request)) {
         EXO_LOG("testcard decoder: "
                 "config not a non-negative number, ignoring.");
@@ -82,8 +82,8 @@ std::optional<std::unique_ptr<BaseDecodeJob>> TestcardDecoder::createJob(
     }
 
     auto frames = pcmFormat_.durationToFrameCount(duration);
-    return { std::make_unique<exo::TestcardDecodeJob>(sink_, pcmFormat_,
-                command, frames) };
+    return {std::make_unique<exo::TestcardDecodeJob>(sink_, pcmFormat_, command,
+                                                     frames)};
 }
 
 } // namespace exo

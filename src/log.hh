@@ -43,9 +43,9 @@ inline void log(const char* file, std::size_t lineno, const char* fmt, ...) {
     std::lock_guard lock(mutex);
     std::va_list args;
     va_start(args, fmt);
-    auto t = std::chrono::duration_cast<
-            std::chrono::milliseconds>(
-                std::chrono::system_clock::now().time_since_epoch()).count();
+    auto t = std::chrono::duration_cast<std::chrono::milliseconds>(
+                 std::chrono::system_clock::now().time_since_epoch())
+                 .count();
     std::fprintf(stderr, "[%0.3f %s:%zu]: ", t * 0.001, file, lineno);
     std::vfprintf(stderr, fmt, args);
     std::putc('\n', stderr);

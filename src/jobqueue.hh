@@ -38,21 +38,18 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
-template <typename T>
-class Job {
-public:
+template <typename T> class Job {
+  public:
     EXO_DEFAULT_NONCOPYABLE_VIRTUAL_DESTRUCTOR(Job)
 
-    inline Job() { }
+    inline Job() {}
     virtual void init() = 0;
     virtual void run(T value) = 0;
 };
 
-template <typename T>
-using QueuedJob = std::unique_ptr<exo::Job<T>>;
+template <typename T> using QueuedJob = std::unique_ptr<exo::Job<T>>;
 
-template <typename T>
-class JobQueue {
+template <typename T> class JobQueue {
     exo::RingBuffer<exo::QueuedJob<T>> jobs_;
     std::mutex runningJob_, initJob_, waitingJob_;
     std::vector<std::thread> threads_;
@@ -67,7 +64,8 @@ class JobQueue {
             std::optional<exo::QueuedJob<T>> maybeJob = jobs_.get();
             if (!maybeJob.has_value()) {
                 waitingLock.unlock();
-                if (jobs_.closed()) return;
+                if (jobs_.closed())
+                    return;
                 continue;
             }
             auto& job = maybeJob.value();
@@ -81,23 +79,23 @@ class JobQueue {
         }
     }
 
-public:
-    JobQueue(std::size_t size, T param) : jobs_(size), param_(param) { }
+  public:
+    JobQueue(std::size_t size, T param) : jobs_(size), param_(param) {}
 
     void addJob(std::unique_ptr<exo::Job<T>>&& job) {
-        if (job) jobs_.putMove(std::move(job));
+        if (job)
+            jobs_.putMove(std::move(job));
     }
 
     void start(std::size_t threadCount) {
-        if (threads_.size()) stop();
+        if (threads_.size())
+            stop();
         threads_.reserve(threadCount);
         for (std::size_t i = 0; i < threadCount; ++i)
             threads_.emplace_back([this]() { runJobs(); });
     }
 
-    void close() {
-        jobs_.close();
-    }
+    void close() { jobs_.close(); }
 
     void stop() {
         close();

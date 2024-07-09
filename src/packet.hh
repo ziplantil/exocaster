@@ -37,22 +37,28 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
+namespace PacketFlags {
+static constexpr unsigned StartOfTrack = 1;
+static constexpr unsigned OutOfBandMetadata = 2;
+}; // namespace PacketFlags
+
 struct PacketHeader {
     std::size_t dataSize;
     std::size_t frameCount;
-    bool startOfTrack;
+    unsigned flags;
 };
 
 template <typename T>
-requires (std::is_trivial_v<T>)
-struct RingBufferWithHeader: public exo::RingBuffer<exo::byte> {
+    requires(std::is_trivial_v<T>)
+struct RingBufferWithHeader : public exo::RingBuffer<exo::byte> {
     using exo::RingBuffer<exo::byte>::RingBuffer;
 
     std::optional<T> readHeader() {
         T header;
         exo::byte headerBytes[sizeof(header)];
         auto read = readFull(headerBytes, sizeof(header));
-        if (read < sizeof(header)) return { };
+        if (read < sizeof(header))
+            return {};
         std::memcpy(&header, headerBytes, sizeof(header));
         return header;
     }
@@ -64,32 +70,33 @@ struct RingBufferWithHeader: public exo::RingBuffer<exo::byte> {
     }
 };
 
-struct PacketRingBuffer: public exo::RingBufferWithHeader<exo::PacketHeader> {
-protected:
+struct PacketRingBuffer : public exo::RingBufferWithHeader<exo::PacketHeader> {
+  protected:
     using exo::RingBuffer<exo::byte>::get;
     using exo::RingBuffer<exo::byte>::readSome;
     using exo::RingBuffer<exo::byte>::readPartial;
     using exo::RingBuffer<exo::byte>::readFull;
+    using exo::RingBuffer<exo::byte>::skipFull;
     using exo::RingBuffer<exo::byte>::put;
     using exo::RingBuffer<exo::byte>::writePartial;
     using exo::RingBuffer<exo::byte>::writeFull;
     using exo::RingBuffer<exo::byte>::writeTimed;
 
-public:
+  public:
     using exo::RingBufferWithHeader<exo::PacketHeader>::RingBufferWithHeader;
 
     class PacketRead {
         PacketRingBuffer* buffer_;
         std::size_t left_;
 
-    public:
+      public:
         PacketHeader header;
 
-    private:
+      private:
         inline PacketRead(PacketRingBuffer& buffer,
-                          PacketHeader&& header) noexcept:
-                buffer_(&buffer), left_(header.dataSize),
-                header(std::move(header)) { }
+                          PacketHeader&& header) noexcept
+            : buffer_(&buffer), left_(header.dataSize),
+              header(std::move(header)) {}
 
         inline std::size_t wantsToRead_(std::size_t n) const noexcept {
             return n < left_ ? n : left_;
@@ -99,8 +106,8 @@ public:
             left_ = left_ > n ? left_ - n : 0;
         }
 
-    public:
-        inline PacketRead() noexcept : buffer_(nullptr), left_(0), header() { }
+      public:
+        inline PacketRead() noexcept : buffer_(nullptr), left_(0), header() {}
 
         bool hasData() const noexcept {
             return left_ > 0 && !buffer_->closed();
@@ -114,7 +121,8 @@ public:
         template <typename OutputIt>
         std::size_t readPartial(OutputIt d_first, std::size_t count) noexcept {
             count = wantsToRead_(count);
-            if (!count) return count;
+            if (!count)
+                return count;
             auto n = buffer_->readPartial(d_first, count);
             didRead_(n);
             return n;
@@ -129,7 +137,8 @@ public:
         template <typename OutputIt>
         std::size_t readSome(OutputIt d_first, std::size_t count) noexcept {
             count = wantsToRead_(count);
-            if (!count) return count;
+            if (!count)
+                return count;
             auto n = buffer_->readSome(d_first, count);
             didRead_(n);
             return n;
@@ -145,10 +154,18 @@ public:
         template <typename OutputIt>
         std::size_t readFull(OutputIt d_first, std::size_t count) noexcept {
             count = wantsToRead_(count);
-            if (!count) return count;
+            if (!count)
+                return count;
             auto n = buffer_->readFull(d_first, count);
             didRead_(n);
             return n;
+        }
+
+        /** Skips this packet. */
+        void skipFull() noexcept {
+            auto count = left_;
+            auto n = buffer_->skipFull(count);
+            didRead_(n);
         }
 
         friend exo::PacketRingBuffer;
@@ -158,18 +175,16 @@ public:
         buffer is closed. */
     inline std::optional<PacketRead> readPacket() {
         auto header = readHeader();
-        if (!header.has_value()) return { };
+        if (!header.has_value())
+            return {};
         return PacketRead(*this, std::move(header.value()));
     }
 
     /** Writes a single packet. */
-    inline void writePacket(bool startOfTrack, std::size_t frameCount,
-                     std::span<const exo::byte> data) {
+    inline void writePacket(unsigned flags, std::size_t frameCount,
+                            std::span<const exo::byte> data) {
         writeHeader(exo::PacketHeader{
-            .dataSize = data.size(),
-            .frameCount = frameCount,
-            .startOfTrack = startOfTrack
-        });
+            .dataSize = data.size(), .frameCount = frameCount, .flags = flags});
         writeFull(data.data(), data.size());
     }
 
@@ -181,14 +196,19 @@ public:
         Returns the number of bytes read. This read is non-blocking.
 
         If there were not enough values, the remaining values
-        are not affected. */
+        are not affected.
+
+        Out-of-band packets are skipped. */
     template <typename OutputIt>
-    std::size_t readDirectPartial(PacketRead& cache,
-                                  OutputIt d_first, std::size_t count) {
+    std::size_t readDirectPartial(PacketRead& cache, OutputIt d_first,
+                                  std::size_t count) {
         while (!cache.hasData()) {
             auto nextPacket = readPacket();
-            if (!nextPacket.has_value()) return 0;
+            if (!nextPacket.has_value())
+                return 0;
             cache = std::move(nextPacket.value());
+            if (cache.header.flags & PacketFlags::OutOfBandMetadata)
+                cache.skipFull();
         }
         return cache.readPartial(d_first, count);
     }
@@ -203,14 +223,19 @@ public:
         until full.
 
         If there were not enough values, the remaining values
-        are not affected. */
+        are not affected.
+
+        Out-of-band packets are skipped.  */
     template <typename OutputIt>
-    std::size_t readDirectSome(PacketRead& cache,
-                               OutputIt d_first, std::size_t count) {
+    std::size_t readDirectSome(PacketRead& cache, OutputIt d_first,
+                               std::size_t count) {
         while (!cache.hasData()) {
             auto nextPacket = readPacket();
-            if (!nextPacket.has_value()) return 0;
+            if (!nextPacket.has_value())
+                return 0;
             cache = std::move(nextPacket.value());
+            if (cache.header.flags & PacketFlags::OutOfBandMetadata)
+                cache.skipFull();
         }
         return cache.readSome(d_first, count);
     }
@@ -225,19 +250,27 @@ public:
         requested only if the buffer is closed.
 
         If there were not enough values, the remaining values
-        are not affected. */
+        are not affected.
+
+        Out-of-band packets are skipped. */
     template <typename OutputIt>
-    std::size_t readDirectFull(PacketRead& cache,
-                               OutputIt d_first, std::size_t count) {
+    std::size_t readDirectFull(PacketRead& cache, OutputIt d_first,
+                               std::size_t count) {
         std::size_t n = 0;
         auto dst = d_first;
         for (;;) {
-            std::size_t b = cache.readFull(dst, count);
-            n += b, dst += b, count -= b;
-            if (!count) break;
+            if (cache.header.flags & PacketFlags::OutOfBandMetadata)
+                cache.skipFull();
+            else {
+                std::size_t b = cache.readFull(dst, count);
+                n += b, dst += b, count -= b;
+                if (!count)
+                    break;
+            }
 
             auto nextPacket = readPacket();
-            if (!nextPacket.has_value()) break;
+            if (!nextPacket.has_value())
+                break;
 
             cache = std::move(nextPacket.value());
         }

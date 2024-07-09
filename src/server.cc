@@ -26,21 +26,19 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
-#include <condition_variable>
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <iostream>
-#include <mutex>
 #include <thread>
 
 #include "decoder/decoder.hh"
 #include "encoder/encoder.hh"
 #include "log.hh"
-#include "queue/commandqueue.hh"
 #include "pcmbuffer.hh"
 #include "publisher.hh"
+#include "queue/commandqueue.hh"
 #include "registry.hh"
 #include "server.hh"
 #include "serverconfig.hh"
@@ -82,6 +80,10 @@ struct ServerParameters {
     exo::printEncoderOptions(std::cout);
     std::cout << std::endl;
 
+    std::cout << "[supported resamplers]";
+    exo::printResamplerOptions(std::cout);
+    std::cout << std::endl;
+
     std::cout << "[supported brocas]";
     exo::printBrocaOptions(std::cout);
     std::cout << std::endl;
@@ -100,57 +102,57 @@ static exo::ServerParameters readParameters(int argc, char* argv[]) {
 
         if (acceptingFlags && argv[i][0] == '-') {
             switch (argv[i][1]) {
-                case 'c':
-                    detectedConfig = argv[i][1];
+            case 'c':
+                detectedConfig = argv[i][1];
+                break;
+            case 'v':
+                print_version();
+                break;
+            case '?':
+                print_help();
+                break;
+            case '-':
+                if (!argv[i][2]) {
+                    acceptingFlags = false;
                     break;
-                case 'v':
-                    print_version();
-                    break;
-                case '?':
+                } else if (!std::strcmp(argv[i], "--help")) {
                     print_help();
                     break;
-                case '-':
-                    if (!argv[i][2]) {
-                        acceptingFlags = false;
-                        break;
-                    } else if (!std::strcmp(argv[i], "--help")) {
-                        print_help();
-                        break;
-                    } else if (!std::strcmp(argv[i], "--version")) {
-                        print_version();
-                        break;
-                    }
-                    EXO_LOG("unrecognized option '%s' given, "
-                            "exiting.", argv[i]);
-                    std::exit(EXIT_FAILURE);
-                default:
-                    EXO_LOG("unrecognized option '-%c' given, "
-                            "exiting.", argv[i][1]);
-                    std::exit(EXIT_FAILURE);
+                } else if (!std::strcmp(argv[i], "--version")) {
+                    print_version();
+                    break;
+                }
+                EXO_LOG("unrecognized option '%s' given, "
+                        "exiting.",
+                        argv[i]);
+                std::exit(EXIT_FAILURE);
+            default:
+                EXO_LOG("unrecognized option '-%c' given, "
+                        "exiting.",
+                        argv[i][1]);
+                std::exit(EXIT_FAILURE);
             }
         }
 
         switch (detectedConfig) {
-            case 0:
-                EXO_LOG("ignoring positional parameter.");
-                break;
-            case 'c':
-                if (hasC) {
-                    EXO_LOG("got duplicate -c, ignoring latter.");
-                } else if (i + 1 < argc) {
-                    hasC = true;
-                    configFilePath = argv[++i];
-                } else {
-                    EXO_LOG("no path provided for -c, exiting.");
-                    std::exit(EXIT_FAILURE);
-                }
-                break;
+        case 0:
+            EXO_LOG("ignoring positional parameter.");
+            break;
+        case 'c':
+            if (hasC) {
+                EXO_LOG("got duplicate -c, ignoring latter.");
+            } else if (i + 1 < argc) {
+                hasC = true;
+                configFilePath = argv[++i];
+            } else {
+                EXO_LOG("no path provided for -c, exiting.");
+                std::exit(EXIT_FAILURE);
+            }
+            break;
         }
     }
 
-    return exo::ServerParameters{
-        .configFilePath = configFilePath
-    };
+    return exo::ServerParameters{.configFilePath = configFilePath};
 }
 
 static exo::ServerConfig readConfig(const exo::ServerParameters& params) {
@@ -192,13 +194,13 @@ class Server {
 
     void readCommands_();
 
-public:
+  public:
     void init();
     void run();
     void close();
 
     Server(exo::ServerConfig&& config) : config_(config) {
-        try{
+        try {
             init();
         } catch (const std::exception& err) {
             EXO_LOG("server start error: %s", err.what());
@@ -220,13 +222,12 @@ void Server::init() {
     pcm_ = exo::createPcmBuffers(config_.pcmbuffer, publisher_);
     jobs_ = std::make_unique<exo::DecoderJobQueue>(JOB_QUEUE_SIZE, pcm_);
     exo::registerCommands(cmd_, config_.commands, format_);
-    exo::registerOutputs(enc_, broca_, *pcm_,
-                         config_.outputs, config_.pcmbuffer, format_);
+    exo::registerOutputs(enc_, broca_, *pcm_, config_.outputs,
+                         config_.pcmbuffer, format_, config_.resampler);
     commandQueue_ = std::make_unique<exo::CommandQueue>(
-                exo::createReadQueue(config_.shell, instanceId_));
-    for (const auto& publish: config_.publish)
-        publisher_->addQueue(exo::createWriteQueue(
-                    publish, instanceId_));
+        exo::createReadQueue(config_.shell, instanceId_));
+    for (const auto& publish : config_.publish)
+        publisher_->addQueue(exo::createWriteQueue(publish, instanceId_));
 }
 
 static auto startEncoder(const std::unique_ptr<exo::BaseEncoder>& encoder) {
@@ -275,11 +276,11 @@ void Server::readCommands_() {
 void Server::run() {
     EXO_LOG("starting exocaster " EXO_VERSION);
     std::vector<std::thread> encoders;
-    for (const auto& encoder: enc_)
+    for (const auto& encoder : enc_)
         encoders.push_back(exo::startEncoder(encoder));
 
     std::vector<std::thread> brocas;
-    for (const auto& broca: broca_)
+    for (const auto& broca : broca_)
         brocas.push_back(exo::startBroca(broca));
 
     jobs_->start(JOB_WORKER_COUNT);
@@ -294,19 +295,25 @@ void Server::run() {
         jobs_->stop();
         pcm_->close();
         // wait for encoders and brocas to finish
-        for (auto& thread: encoders) thread.join();
-        for (const auto& _: broca_) brocaCounter.acquire();
-        for (auto& thread: brocas) thread.join();
+        for (auto& thread : encoders)
+            thread.join();
+        for ([[maybe_unused]] const auto& _ : broca_)
+            brocaCounter.acquire();
+        for (auto& thread : brocas)
+            thread.join();
         // wait for publisher to finish
         publisher_->close();
     } else {
         pcm_->close();
-        for (auto& encoder: enc_) encoder->close();
+        for (auto& encoder : enc_)
+            encoder->close();
         publisher_->close();
 
         jobs_->stop();
-        for (auto& thread: encoders) thread.join();
-        for (auto& thread: brocas) thread.join();
+        for (auto& thread : encoders)
+            thread.join();
+        for (auto& thread : brocas)
+            thread.join();
     }
 
     publisher_->stop();
@@ -315,9 +322,7 @@ void Server::run() {
     EXO_LOG("stopping exocaster " EXO_VERSION);
 }
 
-void Server::close() {
-    commandQueue_->close();
-}
+void Server::close() { commandQueue_->close(); }
 
 static std::unique_ptr<exo::Server> server;
 

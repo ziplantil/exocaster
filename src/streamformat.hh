@@ -46,8 +46,7 @@ struct EncodedStreamFormat {
     exo::EncodedStreamFormatCodec codec;
 };
 
-using StreamFormat = std::variant<exo::PcmFormat,
-                                  exo::EncodedStreamFormat>;
+using StreamFormat = std::variant<exo::PcmFormat, exo::EncodedStreamFormat>;
 
 } // namespace exo
 

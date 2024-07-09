@@ -37,12 +37,12 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
-class ZeroMqReadQueue: public BaseReadQueue {
+class ZeroMqReadQueue : public BaseReadQueue {
     zmq::context_t ctx_;
     zmq::socket_t sock_;
     bool closed_{false};
 
-public:
+  public:
     ZeroMqReadQueue(const exo::ConfigObject& config,
                     const std::string& instanceId);
 
@@ -50,13 +50,13 @@ public:
     void close();
 };
 
-class ZeroMqWriteQueue: public BaseWriteQueue {
+class ZeroMqWriteQueue : public BaseWriteQueue {
     zmq::context_t ctx_;
     zmq::socket_t sock_;
     std::ostringstream buffer_;
     std::optional<std::string> topic_;
 
-public:
+  public:
     ZeroMqWriteQueue(const exo::ConfigObject& config,
                      const std::string& instanceId);
 

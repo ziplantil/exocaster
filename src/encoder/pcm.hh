@@ -33,13 +33,13 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
-class PcmEncoder: public exo::BaseEncoder {
+class PcmEncoder : public exo::BaseEncoder {
     bool metadata_;
 
-public:
+  public:
     PcmEncoder(const exo::ConfigObject& config,
-                std::shared_ptr<exo::PcmBuffer> source,
-                exo::PcmFormat pcmFormat);
+               std::shared_ptr<exo::PcmBuffer> source, exo::PcmFormat pcmFormat,
+               const exo::ResamplerFactory& resamplerFactory);
 
     exo::StreamFormat streamFormat() const noexcept;
 

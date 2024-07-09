@@ -35,7 +35,7 @@ DEALINGS IN THE SOFTWARE.
 namespace exo {
 
 template <typename T>
-requires (std::is_integral_v<T>)
+    requires(std::is_integral_v<T>)
 T engineSeed_() {
     std::random_device rdev;
     using S = std::make_unsigned_t<decltype(rdev())>;
@@ -58,9 +58,9 @@ template <typename F = float, typename T = std::default_random_engine>
 class RandomFloatGenerator {
     T engine_;
 
-public:
-    inline RandomFloatGenerator():
-            engine_(exo::engineSeed_<typename T::result_type>()) { }
+  public:
+    inline RandomFloatGenerator()
+        : engine_(exo::engineSeed_<typename T::result_type>()) {}
 
     F operator()() noexcept {
         return std::uniform_real_distribution<F>(F{0}, F{1})(engine_);

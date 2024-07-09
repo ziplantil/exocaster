@@ -81,11 +81,10 @@ class PcmBuffer {
         return (songHead_ + 1) % songChanges_.size() == songTail_;
     }
 
-public:
+  public:
     PcmBuffer(std::size_t subindex, const exo::PcmFormat& pcmFormat,
-                     std::size_t bufferSize,
-                     std::shared_ptr<exo::Publisher> publisher,
-                     const exo::PcmBufferConfig& config);
+              std::size_t bufferSize, std::shared_ptr<exo::Publisher> publisher,
+              const exo::PcmBufferConfig& config);
 
     std::shared_ptr<exo::Metadata> readMetadata();
     std::size_t readPcm(std::span<exo::byte> destination);
@@ -106,22 +105,21 @@ class PcmSplitter {
     std::shared_ptr<exo::Publisher> publisher_;
     std::size_t chop_;
 
-public:
+  public:
     PcmSplitter(const exo::PcmFormat& pcmFormat, std::size_t bufferSize,
                 std::shared_ptr<exo::Publisher> publisher);
 
-    std::shared_ptr<exo::PcmBuffer> addBuffer(
-                const exo::PcmBufferConfig& config);
+    std::shared_ptr<exo::PcmBuffer>
+    addBuffer(const exo::PcmBufferConfig& config);
     void metadata(std::shared_ptr<exo::ConfigObject> command,
                   const exo::Metadata& metadata);
     void pcm(std::span<const exo::byte> data);
 
-    inline void skipIndex() {
-        ++bufferIndex_;
-    }
+    inline void skipIndex() { ++bufferIndex_; }
 
     inline void close() {
-        for (auto& buffer: buffers_) buffer->close();
+        for (auto& buffer : buffers_)
+            buffer->close();
         buffers_.clear();
     }
 };

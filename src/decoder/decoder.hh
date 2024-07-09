@@ -41,53 +41,52 @@ DEALINGS IN THE SOFTWARE.
 namespace exo {
 
 class UnknownDecoderError : public std::logic_error {
-public:
+  public:
     using std::logic_error::logic_error;
 };
 
-class BaseDecodeJob: public exo::Job<std::shared_ptr<exo::PcmSplitter>> {
-private:
+class BaseDecodeJob : public exo::Job<std::shared_ptr<exo::PcmSplitter>> {
+  private:
     std::shared_ptr<exo::PcmSplitter> sink_;
 
-protected:
+  protected:
     exo::PcmFormat pcmFormat_;
     std::shared_ptr<exo::ConfigObject> command_;
 
     inline BaseDecodeJob(std::shared_ptr<exo::PcmSplitter> sink,
                          exo::PcmFormat pcmFormat,
                          std::shared_ptr<exo::ConfigObject> command)
-            : sink_(sink), pcmFormat_(pcmFormat), command_(command) { }
+        : sink_(sink), pcmFormat_(pcmFormat), command_(command) {}
 
-public:
+  public:
     EXO_DEFAULT_NONCOPYABLE_VIRTUAL_DESTRUCTOR(BaseDecodeJob)
 
-    virtual void init() { }
+    virtual void init() {}
     virtual void run(std::shared_ptr<exo::PcmSplitter> sink) = 0;
 };
 
 class BaseDecoder {
-protected:
+  protected:
     std::shared_ptr<exo::PcmSplitter> sink_;
     exo::PcmFormat pcmFormat_;
 
-public:
+  public:
     /*
     BaseDecoder(const exo::ConfigObject& config,
                 exo::PcmFormat pcmFormat,
                 std::shared_ptr<exo::ConfigObject> command);
     */
-    inline BaseDecoder(exo::PcmFormat pcmFormat) : pcmFormat_(pcmFormat) { }
+    inline BaseDecoder(exo::PcmFormat pcmFormat) : pcmFormat_(pcmFormat) {}
     EXO_DEFAULT_NONCOPYABLE_VIRTUAL_DESTRUCTOR(BaseDecoder)
 
-    virtual std::optional<std::unique_ptr<BaseDecodeJob>> createJob(
-            const exo::ConfigObject& request,
-            std::shared_ptr<exo::ConfigObject> command) = 0;
+    virtual std::optional<std::unique_ptr<BaseDecodeJob>>
+    createJob(const exo::ConfigObject& request,
+              std::shared_ptr<exo::ConfigObject> command) = 0;
 };
 
-std::unique_ptr<exo::BaseDecoder> createDecoder(
-        const std::string& name,
-        const exo::ConfigObject& config,
-        exo::PcmFormat pcmFormat);
+std::unique_ptr<exo::BaseDecoder> createDecoder(const std::string& name,
+                                                const exo::ConfigObject& config,
+                                                exo::PcmFormat pcmFormat);
 
 void printDecoderOptions(std::ostream& stream);
 

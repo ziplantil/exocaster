@@ -9,7 +9,7 @@ RM = rm -f
 CUSTOM_CXXFLAGS ?= 
 CUSTOM_LDFLAGS ?= 
 
-ifdef RELEASE
+ifeq ($(RELEASE),1)
 CFLAGS=-O3 -DNDEBUG
 CXXFLAGS=-O3 -DNDEBUG
 LDFLAGS=-O3 -flto
@@ -39,7 +39,9 @@ OBJS := src/queue/queue.o \
 		src/broca/broca.o \
 		src/broca/discard.o \
 		src/broca/file.o \
+		src/resampler/resampler.o \
 		src/pcmbuffer.o \
+		src/metadata.o \
 		src/serverconfig.o \
 		src/publisher.o \
 		src/registry.o \
@@ -50,7 +52,8 @@ ifeq ($(LIBAVCODEC_ENABLE),1)
 CXXFLAGS := $(CXXFLAGS) $(LIBAVCODEC_CXXFLAGS) -DEXO_LIBAVCODEC=1
 LDLIBS := $(LDLIBS) $(LIBAVCODEC_LDLIBS)
 OBJS := $(OBJS) \
-		src/decoder/libavcodec/lavc.o
+		src/decoder/libavcodec/lavc.o \
+		src/resampler/libswresample/lswr.o
 endif
 
 ifeq ($(LIBVORBIS_ENABLE),1)
@@ -65,6 +68,34 @@ CXXFLAGS := $(CXXFLAGS) $(LIBFLAC_CXXFLAGS) -DEXO_LIBFLAC=1
 LDLIBS := $(LDLIBS) $(LIBFLAC_LDLIBS)
 OBJS := $(OBJS) \
  		src/encoder/libflac/oggflac.o
+endif
+
+ifeq ($(LIBOPUS_ENABLE),1)
+CXXFLAGS := $(CXXFLAGS) $(LIBOPUS_CXXFLAGS) -DEXO_LIBOPUS=1
+LDLIBS := $(LDLIBS) $(LIBOPUS_LDLIBS)
+OBJS := $(OBJS) \
+ 		src/encoder/libopus/oggopus.o
+endif
+
+ifeq ($(MP3LAME_ENABLE),1)
+CXXFLAGS := $(CXXFLAGS) $(MP3LAME_CXXFLAGS) -DEXO_MP3LAME=1
+LDLIBS := $(LDLIBS) $(MP3LAME_LDLIBS)
+OBJS := $(OBJS) \
+ 		src/encoder/lame/mp3.o
+endif
+
+ifeq ($(SOXR_ENABLE),1)
+CXXFLAGS := $(CXXFLAGS) $(SOXR_CXXFLAGS) -DEXO_SOXR=1
+LDLIBS := $(LDLIBS) $(SOXR_LDLIBS)
+OBJS := $(OBJS) \
+		src/resampler/soxr/soxr.o
+endif
+
+ifeq ($(LIBSAMPLERATE_ENABLE),1)
+CXXFLAGS := $(CXXFLAGS) $(LIBSAMPLERATE_CXXFLAGS) -DEXO_LIBSAMPLERATE=1
+LDLIBS := $(LDLIBS) $(LIBSAMPLERATE_LDLIBS)
+OBJS := $(OBJS) \
+		src/resampler/libsamplerate/src.o
 endif
 
 ifeq ($(SHOUT_ENABLE),1)

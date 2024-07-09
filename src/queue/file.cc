@@ -26,8 +26,8 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
-#include "config.hh"
 #include "queue/file.hh"
+#include "config.hh"
 #include "log.hh"
 #include "queue/queue.hh"
 #include "queue/queueutil.hh"
@@ -38,7 +38,7 @@ namespace exo {
 
 exo::FileReadQueue::FileReadQueue(const exo::ConfigObject& config,
                                   const std::string& instanceId)
-        : exo::BaseReadQueue() {
+    : exo::BaseReadQueue() {
     std::string path;
 
     if (cfg::isString(config)) {
@@ -53,7 +53,7 @@ exo::FileReadQueue::FileReadQueue(const exo::ConfigObject& config,
     file_.open(path, std::ios::in);
     if (file_.fail() || file_.bad())
         throw std::system_error(errno, std::generic_category(),
-                    "file queue error: " + path);
+                                "file queue error: " + path);
 }
 
 exo::ConfigObject exo::FileReadQueue::readLine() {
@@ -76,7 +76,8 @@ exo::ConfigObject exo::FileReadQueue::readLine() {
             return cfg::parseFromFile(stream);
         } catch (const std::exception& e) {
             EXO_LOG("could not parse incoming line as JSON, "
-                    "ignoring: %s", e.what());
+                    "ignoring: %s",
+                    e.what());
             continue;
         }
     }
@@ -85,13 +86,11 @@ exo::ConfigObject exo::FileReadQueue::readLine() {
     return {};
 }
 
-void exo::FileReadQueue::close() {
-    file_.close();
-}
+void exo::FileReadQueue::close() { file_.close(); }
 
 exo::FileWriteQueue::FileWriteQueue(const exo::ConfigObject& config,
                                     const std::string& instanceId)
-        : exo::BaseWriteQueue() {
+    : exo::BaseWriteQueue() {
     std::string path;
     auto flags = std::ios::out;
 
@@ -110,12 +109,8 @@ exo::FileWriteQueue::FileWriteQueue(const exo::ConfigObject& config,
     file_.exceptions(std::ifstream::badbit);
 }
 
-std::ostream& exo::FileWriteQueue::write() {
-    return file_;
-}
+std::ostream& exo::FileWriteQueue::write() { return file_; }
 
-void exo::FileWriteQueue::writeLine() {
-    file_ << std::endl;
-}
+void exo::FileWriteQueue::writeLine() { file_ << std::endl; }
 
 } // namespace exo

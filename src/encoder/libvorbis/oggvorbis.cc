@@ -1,6 +1,6 @@
 /***
 exocaster -- audio streaming helper
-encoder/libvorbis/oggvorbis.cc -- OGG Vorbis encoder using libvorbis
+encoder/libvorbis/oggvorbis.cc -- Ogg Vorbis encoder using libvorbis
 
 MIT License
 
@@ -46,68 +46,41 @@ extern "C" {
 
 namespace exo {
 
-exo::VorbisInfo::VorbisInfo() {
-    vorbis_info_init(ptr());
-}
+exo::VorbisInfo::VorbisInfo() { vorbis_info_init(get()); }
 
-exo::VorbisInfo::~VorbisInfo() noexcept {
-    vorbis_info_clear(ptr());
-}
+exo::VorbisInfo::~VorbisInfo() noexcept { vorbis_info_clear(get()); }
 
 exo::VorbisDspState::VorbisDspState(exo::VorbisInfo& info) {
-    int err = vorbis_analysis_init(ptr(), info.ptr());
+    int err = vorbis_analysis_init(get(), info.get());
     if (err) {
         EXO_LOG("vorbis_analysis_init failed: %d", err);
         throw std::runtime_error("vorbis_analysis_init failed");
     }
 }
 
-exo::VorbisDspState::~VorbisDspState() noexcept {
-    vorbis_dsp_clear(ptr());
-}
+exo::VorbisDspState::~VorbisDspState() noexcept { vorbis_dsp_clear(get()); }
 
 exo::VorbisBlock::VorbisBlock(exo::VorbisDspState& dspState) {
-    int err = vorbis_block_init(dspState.ptr(), ptr());
+    int err = vorbis_block_init(dspState.get(), get());
     if (err) {
         EXO_LOG("vorbis_block_init failed: %d", err);
         throw std::runtime_error("vorbis_block_init failed");
     }
 }
 
-exo::VorbisBlock::~VorbisBlock() noexcept {
-    vorbis_block_clear(ptr());
-}
+exo::VorbisBlock::~VorbisBlock() noexcept { vorbis_block_clear(get()); }
 
-exo::VorbisComment::VorbisComment() {
-    vorbis_comment_init(ptr());
-}
+exo::VorbisComment::VorbisComment() { vorbis_comment_init(get()); }
 
-exo::VorbisComment::~VorbisComment() noexcept {
-    vorbis_comment_clear(ptr());
-}
+exo::VorbisComment::~VorbisComment() noexcept { vorbis_comment_clear(get()); }
 
-exo::OggStreamState::OggStreamState(int serial) {
-    int err = ogg_stream_init(ptr(), serial);
-    if (err) {
-        EXO_LOG("ogg_stream_init failed: %d", err);
-        throw std::runtime_error("ogg_stream_init failed");
-    }
-}
-
-exo::OggStreamState::~OggStreamState() noexcept {
-    ogg_stream_clear(ptr());
-}
-
-exo::OggVorbisEncoder::OggVorbisEncoder(const exo::ConfigObject& config,
-                            std::shared_ptr<exo::PcmBuffer> source,
-                            exo::PcmFormat pcmFormat):
-                BaseEncoder(source, pcmFormat) {
-    nomBitrate_ = cfg::namedInt<
-                std::int_least32_t>(config, "bitrate", 128000);
-    minBitrate_ = cfg::namedInt<
-                std::int_least32_t>(config, "minbitrate", -1);
-    maxBitrate_ = cfg::namedInt<
-                std::int_least32_t>(config, "maxbitrate", -1);
+exo::OggVorbisEncoder::OggVorbisEncoder(
+    const exo::ConfigObject& config, std::shared_ptr<exo::PcmBuffer> source,
+    exo::PcmFormat pcmFormat, const exo::ResamplerFactory& resamplerFactory)
+    : BaseEncoder(source, pcmFormat) {
+    nomBitrate_ = cfg::namedInt<std::int_least32_t>(config, "bitrate", 128000);
+    minBitrate_ = cfg::namedInt<std::int_least32_t>(config, "minbitrate", -1);
+    maxBitrate_ = cfg::namedInt<std::int_least32_t>(config, "maxbitrate", -1);
 
     switch (pcmFormat.channels) {
     case exo::PcmChannelLayout::Mono:
@@ -126,68 +99,25 @@ exo::OggVorbisEncoder::OggVorbisEncoder(const exo::ConfigObject& config,
 }
 
 exo::StreamFormat exo::OggVorbisEncoder::streamFormat() const noexcept {
-    return exo::EncodedStreamFormat{
-        exo::EncodedStreamFormatCodec::OGG_VORBIS
-    };
+    return exo::EncodedStreamFormat{exo::EncodedStreamFormatCodec::OGG_VORBIS};
 }
 
 void exo::OggVorbisEncoder::pushPage_(const ogg_page& page) {
     std::uint_least64_t newGranulePosition = ogg_page_granulepos(&page);
     std::size_t granules = newGranulePosition - lastGranulePosition_;
 
-    packet(0, { page.header, static_cast<size_t>(page.header_len) });
-    packet(granules, { page.body, static_cast<size_t>(page.body_len) });
+    packet(0, {page.header, static_cast<size_t>(page.header_len)});
+    packet(granules, {page.body, static_cast<size_t>(page.body_len)});
 
-    granulesInPage_ -= static_cast<std::size_t>(
-            newGranulePosition - lastGranulePosition_);
+    granulesInPage_ -=
+        static_cast<std::size_t>(newGranulePosition - lastGranulePosition_);
     lastGranulePosition_ = newGranulePosition;
     endOfStream_ = ogg_page_eos(&page);
 }
 
-void exo::OggVorbisEncoder::flushBuffers_() {
-    auto dsp = dspState_->ptr();
-    auto block = block_->ptr();
-    auto stream = stream_->ptr();
-
-    ogg_page page;
-    ogg_packet packet;
-    unsigned long flushThreshold = pcmFormat_.rate * 2;
-
-    while (vorbis_analysis_blockout(dsp, block) == 1
-                    && EXO_LIKELY(exo::shouldRun())) {
-        vorbis_analysis(block, nullptr);
-        vorbis_bitrate_addblock(block);
-
-        while (vorbis_bitrate_flushpacket(dsp, &packet) &&
-                        EXO_LIKELY(exo::shouldRun())) {
-            ogg_stream_packetin(stream, &packet);
-
-            while (EXO_LIKELY(!endOfStream_ && exo::shouldRun())) {
-                int result;
-
-                if (granulesInPage_ >= flushThreshold)
-                    result = ogg_stream_flush(stream, &page);
-                else
-                    result = ogg_stream_pageout(stream, &page);
-
-                if (!result) break;
-                pushPage_(page);
-            }
-        }
-    }
-}
-
-void exo::OggVorbisEncoder::flushPages_() {
-    if (stream_) {
-        ogg_page page;
-        auto stream = stream_->ptr();
-        while (ogg_stream_flush(stream, &page))
-            pushPage_(page);
-    }
-}
-
 void exo::OggVorbisEncoder::startTrack(const exo::Metadata& metadata) {
-    if (init_) endTrack();
+    if (init_)
+        endTrack();
 
     // ensure correct destruction order
     stream_.reset();
@@ -196,26 +126,30 @@ void exo::OggVorbisEncoder::startTrack(const exo::Metadata& metadata) {
     comment_.reset();
     info_.reset();
 
-    auto info = (info_ = std::make_unique<VorbisInfo>())->ptr();
-    int ret = vorbis_encode_setup_managed(info, channels_, pcmFormat_.rate,
-                                maxBitrate_, nomBitrate_, minBitrate_);
+    auto info = (info_ = std::make_unique<VorbisInfo>())->get();
+    int ret =
+        vorbis_encode_setup_managed(info, channels_, pcmFormat_.rate,
+                                    maxBitrate_, nomBitrate_, minBitrate_);
     if (ret) {
         EXO_LOG("oggvorbis: vorbis_encode_setup_managed failed (%d). "
-                "skipping track.", ret);
+                "skipping track.",
+                ret);
         return;
     }
 
     ret = vorbis_encode_ctl(info, OV_ECTL_RATEMANAGE2_SET, nullptr);
     if (ret) {
         EXO_LOG("oggvorbis: vorbis_encode_ctl failed (%d). "
-                "skipping track.", ret);
+                "skipping track.",
+                ret);
         return;
     }
 
     ret = vorbis_encode_setup_init(info);
     if (ret) {
         EXO_LOG("oggvorbis: vorbis_encode_setup_init failed (%d). "
-                "skipping track.", ret);
+                "skipping track.",
+                ret);
         return;
     }
 
@@ -224,11 +158,12 @@ void exo::OggVorbisEncoder::startTrack(const exo::Metadata& metadata) {
     ogg_stream_state* stream;
 
     try {
-        comment = (comment_ = std::make_unique<VorbisComment>())->ptr();
-        dsp = (dspState_ = std::make_unique<VorbisDspState>(*info_))->ptr();
+        comment = (comment_ = std::make_unique<VorbisComment>())->get();
+        dsp = (dspState_ = std::make_unique<VorbisDspState>(*info_))->get();
         block_ = std::make_unique<VorbisBlock>(*dspState_);
         stream = (stream_ = std::make_unique<OggStreamState>(
-                                static_cast<int>(serial_++)))->ptr();
+                      static_cast<int>(serial_++)))
+                     ->get();
     } catch (std::exception& e) {
         EXO_LOG("vorbis track change failed. skipping track.");
         return;
@@ -249,11 +184,52 @@ void exo::OggVorbisEncoder::startTrack(const exo::Metadata& metadata) {
     init_ = true;
 }
 
+void exo::OggVorbisEncoder::flushBuffers_() {
+    auto dsp = dspState_->get();
+    auto block = block_->get();
+    auto stream = stream_->get();
+
+    ogg_page page;
+    ogg_packet packet;
+    unsigned long flushThreshold = pcmFormat_.rate * 2;
+
+    while (vorbis_analysis_blockout(dsp, block) == 1 &&
+           EXO_LIKELY(exo::shouldRun())) {
+        vorbis_analysis(block, nullptr);
+        vorbis_bitrate_addblock(block);
+
+        while (vorbis_bitrate_flushpacket(dsp, &packet) &&
+               EXO_LIKELY(exo::shouldRun())) {
+            ogg_stream_packetin(stream, &packet);
+
+            while (EXO_LIKELY(!endOfStream_ && exo::shouldRun())) {
+                int result;
+
+                if (granulesInPage_ >= flushThreshold)
+                    result = ogg_stream_flush(stream, &page);
+                else
+                    result = ogg_stream_pageout(stream, &page);
+
+                if (!result)
+                    break;
+                pushPage_(page);
+            }
+        }
+    }
+}
+
+void exo::OggVorbisEncoder::flushPages_() {
+    if (stream_) {
+        ogg_page page;
+        auto stream = stream_->get();
+        while (ogg_stream_flush(stream, &page))
+            pushPage_(page);
+    }
+}
+
 template <exo::PcmSampleFormat fmt>
-static void uninterleaveToFloat_(float** dst,
-                                 const void* srcv,
-                                 unsigned channels,
-                                 std::size_t frames) {
+static void uninterleaveToFloat_(float** dst, const void* srcv,
+                                 unsigned channels, std::size_t frames) {
     auto src = reinterpret_cast<const exo::PcmFormat_t<fmt>*>(srcv);
 
     for (std::size_t c = 0; c < channels; ++c) {
@@ -273,8 +249,8 @@ static void uninterleaveToFloat(exo::PcmFormat pcmfmt, float** dst,
 #define EXO_PCM_FORMATS_CASE(F)                                                \
     case exo::PcmSampleFormat::F:                                              \
         return exo::uninterleaveToFloat_<exo::PcmSampleFormat::F>(             \
-                dst, src, channels, frames);
-    EXO_PCM_FORMATS_SWITCH
+            dst, src, channels, frames);
+        EXO_PCM_FORMATS_SWITCH
 #undef EXO_PCM_FORMATS_CASE
     default:
         EXO_UNREACHABLE;
@@ -283,14 +259,16 @@ static void uninterleaveToFloat(exo::PcmFormat pcmfmt, float** dst,
 
 void exo::OggVorbisEncoder::pcmBlock(std::size_t frameCount,
                                      std::span<const exo::byte> data) {
-    if (!init_) return;
+    if (!init_)
+        return;
 
     const byte* source = data.data();
     std::size_t count = data.size();
-    if (!count) return;
+    if (!count)
+        return;
 
-    alignas(std::uintmax_t) exo::byte alignedBuffer[4096] = { 0 };
-    auto dsp = dspState_->ptr();
+    alignas(std::uintmax_t) exo::byte alignedBuffer[4096] = {0};
+    auto dsp = dspState_->get();
     auto fitFrames = sizeof(alignedBuffer) / pcmFormat_.bytesPerFrame();
 
     float** dspBuffer = vorbis_analysis_buffer(dsp, fitFrames);
@@ -312,8 +290,9 @@ void exo::OggVorbisEncoder::pcmBlock(std::size_t frameCount,
 }
 
 void exo::OggVorbisEncoder::endTrack() {
-    if (!init_) return;
-    vorbis_analysis_wrote(dspState_->ptr(), 0);
+    if (!init_)
+        return;
+    vorbis_analysis_wrote(dspState_->get(), 0);
     flushBuffers_();
     flushPages_();
     init_ = false;

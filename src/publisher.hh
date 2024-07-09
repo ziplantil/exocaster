@@ -55,9 +55,9 @@ class PublishQueue {
     std::unique_ptr<exo::BaseWriteQueue> queue_;
     exo::RingBuffer<exo::PublishedEvent> events_;
 
-public:
+  public:
     inline PublishQueue(std::unique_ptr<exo::BaseWriteQueue>&& queue)
-        : queue_(std::move(queue)), events_(EVENT_BUFFER_SIZE) { }
+        : queue_(std::move(queue)), events_(EVENT_BUFFER_SIZE) {}
 
     void push(const exo::PublishedEvent& event);
     void run();
@@ -71,7 +71,7 @@ class Publisher {
     void push_(const exo::PublishedEvent& event);
     void startQueue_(std::unique_ptr<exo::PublishQueue>& queue);
 
-public:
+  public:
     void addQueue(std::unique_ptr<exo::BaseWriteQueue>&& queue);
     void start();
     void close();

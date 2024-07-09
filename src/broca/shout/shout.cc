@@ -28,7 +28,9 @@ DEALINGS IN THE SOFTWARE.
 
 #include "broca/shout/shout.hh"
 #include "broca/broca.hh"
+#include "config.hh"
 #include "log.hh"
+#include "metadata.hh"
 #include "packet.hh"
 #include "server.hh"
 #include "streamformat.hh"
@@ -39,16 +41,27 @@ extern "C" {
 #include <shout/shout.h>
 };
 
-#define EXO_SHOUT_ALLOW_OGGFLAC 1
-
 namespace exo {
 
-static void shoutError_(const char* file, std::size_t lineno,
-                        const char* fn, shout_t* shout) {
+void ShoutGlobal::init() { shout_init(); }
+void ShoutGlobal::quit() { shout_shutdown(); }
+
+Shout::Shout() : PointerSlot(shout_new()) {
+    if (!has())
+        throw std::bad_alloc();
+}
+
+Shout::~Shout() noexcept {
+    if (has())
+        shout_free(release());
+}
+
+static void shoutError_(const char* file, std::size_t lineno, const char* fn,
+                        shout_t* shout) {
     exo::log(file, lineno, "%s failed: %s", fn, shout_get_error(shout));
 }
 
-#define EXO_SHOUT_ERROR(fn, shout_) \
+#define EXO_SHOUT_ERROR(fn, shout_)                                            \
     exo::shoutError_(__FILE__, __LINE__, fn, shout_)
 
 static void shoutCopyMetadata(shout_t* shout, const char* shoutMeta,
@@ -56,8 +69,7 @@ static void shoutCopyMetadata(shout_t* shout, const char* shoutMeta,
                               const char* key) {
     if (cfg::hasString(config, key)) {
         auto str = cfg::namedString(config, key);
-        if (shout_set_meta(shout, shoutMeta, str.c_str())
-                            != SHOUTERR_SUCCESS) {
+        if (shout_set_meta(shout, shoutMeta, str.c_str()) != SHOUTERR_SUCCESS) {
             EXO_SHOUT_ERROR("shout_set_meta", shout);
             throw std::runtime_error("shout_set_meta failed");
         }
@@ -65,9 +77,11 @@ static void shoutCopyMetadata(shout_t* shout, const char* shoutMeta,
 }
 
 exo::ShoutBroca::ShoutBroca(const exo::ConfigObject& config,
-               std::shared_ptr<exo::PacketRingBuffer> source,
-               const exo::StreamFormat& streamFormat,
-               unsigned long frameRate): BaseBroca(source, frameRate) {
+                            std::shared_ptr<exo::PacketRingBuffer> source,
+                            const exo::StreamFormat& streamFormat,
+                            unsigned long frameRate)
+    : BaseBroca(source, frameRate), syncClock_(frameRate),
+      syncThreshold_(frameRate / 20) {
     if (!cfg::isObject(config))
         throw std::runtime_error("shout broca needs a config object");
 
@@ -112,50 +126,47 @@ exo::ShoutBroca::ShoutBroca(const exo::ConfigObject& config,
         throw std::runtime_error("shout broca unsupported codec");
     }
 
-    shout_ = shout_new();
-    if (!shout_) throw std::runtime_error("shout_new failed");
+    auto shout = shout_.get();
 
-    if (shout_set_protocol(shout_, protocol) != SHOUTERR_SUCCESS) {
-        EXO_SHOUT_ERROR("shout_set_protocol", shout_);
+    if (shout_set_protocol(shout, protocol) != SHOUTERR_SUCCESS) {
+        EXO_SHOUT_ERROR("shout_set_protocol", shout);
         throw std::runtime_error("shout_set_protocol failed");
     }
-    if (shout_set_host(shout_, host.c_str()) != SHOUTERR_SUCCESS) {
-        EXO_SHOUT_ERROR("shout_set_error", shout_);
+    if (shout_set_host(shout, host.c_str()) != SHOUTERR_SUCCESS) {
+        EXO_SHOUT_ERROR("shout_set_error", shout);
         throw std::runtime_error("shout_set_error failed");
     }
-    if (shout_set_port(shout_, port) != SHOUTERR_SUCCESS) {
-        EXO_SHOUT_ERROR("shout_set_port", shout_);
+    if (shout_set_port(shout, port) != SHOUTERR_SUCCESS) {
+        EXO_SHOUT_ERROR("shout_set_port", shout);
         throw std::runtime_error("shout_set_port failed");
     }
-    if (shout_set_user(shout_, user.c_str()) != SHOUTERR_SUCCESS) {
-        EXO_SHOUT_ERROR("shout_set_user", shout_);
+    if (shout_set_user(shout, user.c_str()) != SHOUTERR_SUCCESS) {
+        EXO_SHOUT_ERROR("shout_set_user", shout);
         throw std::runtime_error("shout_set_user failed");
     }
-    if (shout_set_password(shout_, password.c_str()) != SHOUTERR_SUCCESS) {
-        EXO_SHOUT_ERROR("shout_set_password", shout_);
+    if (shout_set_password(shout, password.c_str()) != SHOUTERR_SUCCESS) {
+        EXO_SHOUT_ERROR("shout_set_password", shout);
         throw std::runtime_error("shout_set_password failed");
     }
-    if (shout_set_mount(shout_, mount.c_str()) != SHOUTERR_SUCCESS) {
-        EXO_SHOUT_ERROR("shout_set_mount", shout_);
+    if (shout_set_mount(shout, mount.c_str()) != SHOUTERR_SUCCESS) {
+        EXO_SHOUT_ERROR("shout_set_mount", shout);
         throw std::runtime_error("shout_set_mount failed");
     }
-    if (shout_set_content_format(shout_, format, SHOUT_USAGE_AUDIO, nullptr)) {
-        EXO_SHOUT_ERROR("shout_set_content_format", shout_);
+    if (shout_set_content_format(shout, format, SHOUT_USAGE_AUDIO, nullptr)) {
+        EXO_SHOUT_ERROR("shout_set_content_format", shout);
         throw std::runtime_error("shout_set_content_format failed");
     }
 
-    shoutCopyMetadata(shout_, SHOUT_META_NAME, config, "name");
-    shoutCopyMetadata(shout_, SHOUT_META_GENRE, config, "genre");
-    shoutCopyMetadata(shout_, SHOUT_META_DESCRIPTION, config, "description");
-    shoutCopyMetadata(shout_, SHOUT_META_URL, config, "url");
+    shoutCopyMetadata(shout, SHOUT_META_NAME, config, "name");
+    shoutCopyMetadata(shout, SHOUT_META_GENRE, config, "genre");
+    shoutCopyMetadata(shout, SHOUT_META_DESCRIPTION, config, "description");
+    shoutCopyMetadata(shout, SHOUT_META_URL, config, "url");
+
+    selfSync_ = cfg::namedBoolean(config, "selfsync", false);
 }
 
-exo::ShoutBroca::~ShoutBroca() noexcept {
-    if (shout_) shout_close(shout_);
-}
-
-static bool shoutTrySend(shout_t* shout, const exo::byte* buffer,
-                         std::size_t n, unsigned tries = 3) {
+static bool shoutTrySend(shout_t* shout, const exo::byte* buffer, std::size_t n,
+                         unsigned tries = 3) {
     int err;
     while (tries--) {
         err = shout_send(shout, buffer, n);
@@ -172,24 +183,90 @@ static bool shoutTrySend(shout_t* shout, const exo::byte* buffer,
     return false;
 }
 
+struct ShoutMetadata : public PointerSlot<ShoutMetadata, shout_metadata_t> {
+    using PointerSlot::PointerSlot;
+    ShoutMetadata() : PointerSlot(shout_metadata_new()) {
+        if (!has())
+            throw std::bad_alloc();
+    }
+    ~ShoutMetadata() noexcept {
+        if (has())
+            shout_metadata_free(release());
+    }
+    EXO_DEFAULT_NONCOPYABLE(ShoutMetadata)
+};
+
+void exo::ShoutBroca::handleOutOfBandMetadata_(
+    exo::PacketRingBuffer::PacketRead& packet) {
+    try {
+        auto metadata = exo::readOutOfBandMetadata(packet);
+
+        // TODO eventually this should be customizable
+        std::ostringstream joiner;
+        const char* artist = "";
+        const char* title = "";
+
+        for (const auto& [key, value] : metadata) {
+            if (!exo::stricmp(key.c_str(), "artist")) {
+                artist = value.c_str();
+            } else if (!exo::stricmp(key.c_str(), "title")) {
+                title = value.c_str();
+            }
+        }
+
+        int err;
+        ShoutMetadata meta_;
+        auto shout = shout_.get();
+        auto meta = meta_.get();
+        joiner << artist << " - " << title;
+        auto joined = joiner.str();
+
+        err = shout_metadata_add(meta, "song", joined.c_str());
+        if (err != SHOUTERR_SUCCESS) {
+            EXO_SHOUT_ERROR("shout_set_metadata", shout);
+            return;
+        }
+#if 1
+        err = shout_set_metadata_utf8(shout, meta);
+#else
+        err = shout_set_metadata(shout, meta);
+#endif
+        if (err != SHOUTERR_SUCCESS) {
+            EXO_SHOUT_ERROR("shout_set_metadata", shout);
+            return;
+        }
+    } catch (const std::exception& e) {
+        EXO_LOG("metadata error: %s", e.what());
+    }
+}
+
 void exo::ShoutBroca::runImpl() {
     int err;
     bool quitting = false;
     exo::byte buffer[exo::BaseBroca::DEFAULT_BROCA_BUFFER];
+    auto shout = shout_.get();
 
     while (EXO_LIKELY(exo::shouldRun())) {
-        err = shout_open(shout_);
+        err = shout_open(shout);
         if (err != SHOUTERR_SUCCESS) {
-            EXO_SHOUT_ERROR("shout_open", shout_);
+            EXO_SHOUT_ERROR("shout_open", shout);
             std::this_thread::sleep_for(std::chrono::seconds(1));
             continue;
         }
+
+        if (selfSync_)
+            syncClock_.reset();
 
         while (EXO_LIKELY(exo::shouldRun())) {
             auto packet = source_->readPacket();
             if (!packet.has_value()) {
                 quitting = true;
                 break;
+            }
+
+            if (packet->header.flags & PacketFlags::OutOfBandMetadata) {
+                handleOutOfBandMetadata_(*packet);
+                continue;
             }
 
             while (packet->hasData() && EXO_LIKELY(exo::shouldRun())) {
@@ -202,18 +279,24 @@ void exo::ShoutBroca::runImpl() {
                         continue;
                 }
 
-                if (!exo::shoutTrySend(shout_, buffer, n)) {
+                if (!exo::shoutTrySend(shout, buffer, n)) {
                     std::this_thread::sleep_for(std::chrono::seconds(1));
                     goto reconnect;
                 }
             }
 
-            shout_sync(shout_);
+            if (selfSync_) {
+                syncClock_.update(packet->header.frameCount);
+                syncClock_.sleepIf(syncThreshold_);
+            } else {
+                shout_sync(shout);
+            }
         }
 
-reconnect:
-        shout_close(shout_);
-        if (quitting) break;
+    reconnect:
+        shout_close(shout);
+        if (quitting)
+            break;
     }
 }
 

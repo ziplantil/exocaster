@@ -69,12 +69,16 @@ struct PcmBufferConfig {
     static PcmBufferConfig read(const exo::ConfigObject& cfg);
 
     inline exo::PcmFormat pcmFormat() const noexcept {
-        return exo::PcmFormat {
-            .sample = format,
-            .rate = samplerate,
-            .channels = channels
-        };
+        return exo::PcmFormat{
+            .sample = format, .rate = samplerate, .channels = channels};
     }
+};
+
+struct ResamplerConfig {
+    std::string type;
+    exo::ConfigObject config;
+
+    static ResamplerConfig read(const exo::ConfigObject& cfg);
 };
 
 struct BrocaConfig {
@@ -98,6 +102,7 @@ struct ServerConfig {
     std::vector<exo::QueueConfig> publish;
     exo::CommandConfig commands;
     exo::PcmBufferConfig pcmbuffer;
+    exo::ResamplerConfig resampler;
     std::vector<exo::OutputConfig> outputs;
 
     static ServerConfig read(const exo::ConfigObject& cfg);

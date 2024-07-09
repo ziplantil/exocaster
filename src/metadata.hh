@@ -29,8 +29,10 @@ DEALINGS IN THE SOFTWARE.
 #ifndef METADATA_HH
 #define METADATA_HH
 
+#include "packet.hh"
 #include <bit>
 #include <locale>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -42,15 +44,15 @@ struct CaseInsensitiveHash_ {
     std::size_t operator()(const std::string& s) const noexcept {
         std::size_t h = static_cast<std::size_t>(0xB3827798F1A9F17CULL);
         std::size_t p = 54907;
-        for (char c: s)
+        for (char c : s)
             h = std::rotl((h ^ static_cast<unsigned char>(c)) * p, 3);
         return h;
     }
 };
 
 inline int caseInsensitiveCharCompare_(char a, char b) {
-    return std::tolower(a, std::locale::classic())
-         - std::tolower(b, std::locale::classic());
+    return std::tolower(a, std::locale::classic()) -
+           std::tolower(b, std::locale::classic());
 }
 
 inline bool caseInsensitiveCharEquals_(char a, char b) {
@@ -58,11 +60,10 @@ inline bool caseInsensitiveCharEquals_(char a, char b) {
 }
 
 struct CaseInsensitiveEqual_ {
-    bool operator()(const std::string& s,
-                    const std::string& t) const noexcept {
+    bool operator()(const std::string& s, const std::string& t) const noexcept {
         return s.size() == t.size() &&
-                std::equal(s.begin(), s.end(), t.begin(),
-                exo::caseInsensitiveCharEquals_);
+               std::equal(s.begin(), s.end(), t.begin(),
+                          exo::caseInsensitiveCharEquals_);
     }
 };
 
@@ -70,7 +71,8 @@ inline int stricmp(const char* a, const char* b) {
     for (;;) {
         char x = *a++, y = *b++;
         int c = caseInsensitiveCharCompare_(x, y);
-        if (c != 0 || !x) return c;
+        if (c != 0 || !x)
+            return c;
     }
     return 0;
 }
@@ -79,18 +81,22 @@ inline int strnicmp(const char* a, const char* b, std::size_t n) {
     for (; n; --n) {
         char x = *a++, y = *b++;
         int c = caseInsensitiveCharCompare_(x, y);
-        if (c != 0 || !x) return c;
+        if (c != 0 || !x)
+            return c;
     }
     return 0;
 }
 
 /** A map with string keys that are treated as case-insensitive. */
 template <typename T>
-using CaseInsensitiveMap = std::unordered_map<std::string, T,
-                                              exo::CaseInsensitiveHash_,
-                                              exo::CaseInsensitiveEqual_>;
+using CaseInsensitiveMap =
+    std::unordered_map<std::string, T, exo::CaseInsensitiveHash_,
+                       exo::CaseInsensitiveEqual_>;
 
 using Metadata = std::vector<std::pair<std::string, std::string>>;
+
+std::string writeOutOfBandMetadata(const exo::Metadata& metadata);
+exo::Metadata readOutOfBandMetadata(exo::PacketRingBuffer::PacketRead& packet);
 
 } // namespace exo
 

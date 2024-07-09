@@ -35,17 +35,16 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
-class FileBroca: public exo::BaseBroca {
+class FileBroca : public exo::BaseBroca {
     std::ofstream file_;
 
-protected:
+  protected:
     void runImpl();
 
-public:
+  public:
     FileBroca(const exo::ConfigObject& config,
               std::shared_ptr<exo::PacketRingBuffer> source,
-              const exo::StreamFormat& streamFormat,
-              unsigned long frameRate);
+              const exo::StreamFormat& streamFormat, unsigned long frameRate);
 };
 
 } // namespace exo

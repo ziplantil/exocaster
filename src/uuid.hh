@@ -45,21 +45,20 @@ struct UUID {
     inline std::string str() const {
         char buf[] = "00000000-0000-0000-0000-000000000000";
         std::snprintf(buf, sizeof(buf),
-                    "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-"
-                    "%02x%02x%02x%02x%02x%02x",
-                    data[ 0], data[ 1], data[ 2], data[ 3],
-                    data[ 4], data[ 5], data[ 6], data[ 7],
-                    data[ 8], data[ 9], data[10], data[11],
-                    data[12], data[13], data[14], data[15]);
+                      "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-"
+                      "%02x%02x%02x%02x%02x%02x",
+                      data[0], data[1], data[2], data[3], data[4], data[5],
+                      data[6], data[7], data[8], data[9], data[10], data[11],
+                      data[12], data[13], data[14], data[15]);
         return std::string(buf);
     }
 
-    template <typename R>
-    static UUID uuid7(R& randomizer) {
+    template <typename R> static UUID uuid7(R& randomizer) {
         auto t = std::chrono::system_clock::now();
         auto x = std::chrono::duration_cast<
-                    std::chrono::duration<std::uint_least64_t, std::milli>>(
-                                t.time_since_epoch()).count();
+                     std::chrono::duration<std::uint_least64_t, std::milli>>(
+                     t.time_since_epoch())
+                     .count();
         std::uniform_int_distribution<exo::byte> dist(0, 255);
         std::array<exo::byte, 16> b;
 
@@ -71,7 +70,7 @@ struct UUID {
         for (std::size_t i = 9; i < 16; ++i)
             b[i] = dist(randomizer);
 
-        return UUID{ .data = b };
+        return UUID{.data = b};
     }
 
     static UUID uuid7() {

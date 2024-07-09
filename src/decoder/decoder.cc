@@ -36,8 +36,7 @@ DEALINGS IN THE SOFTWARE.
 
 #if EXO_LIBAVCODEC
 #include "decoder/libavcodec/lavc.hh"
-#define DECODER_DEFS_LIBAVCODEC                                                \
-    DECODER_DEF(lavc, exo::LavcDecoder)
+#define DECODER_DEFS_LIBAVCODEC DECODER_DEF(lavc, exo::LavcDecoder)
 #else
 #define DECODER_DEFS_LIBAVCODEC
 #endif
@@ -56,22 +55,22 @@ enum class DecoderImpl {
 };
 
 static std::unordered_map<std::string, exo::DecoderImpl> decoders = {
-#define DECODER_DEF(N, T) { #N, exo::DecoderImpl::N },
+#define DECODER_DEF(N, T) {#N, exo::DecoderImpl::N},
     DECODER_DEFS
 #undef DECODER_DEF
 };
 
-std::unique_ptr<exo::BaseDecoder> createDecoder(
-            const std::string& type,
-            const exo::ConfigObject& config,
-            exo::PcmFormat pcmFormat) {
+std::unique_ptr<exo::BaseDecoder> createDecoder(const std::string& type,
+                                                const exo::ConfigObject& config,
+                                                exo::PcmFormat pcmFormat) {
     auto it = decoders.find(type);
 
     if (it != decoders.end()) {
         switch (it->second) {
-#define DECODER_DEF(N, T)   case exo::DecoderImpl::N:                          \
-                                return std::make_unique<T>(config, pcmFormat);
-    DECODER_DEFS
+#define DECODER_DEF(N, T)                                                      \
+    case exo::DecoderImpl::N:                                                  \
+        return std::make_unique<T>(config, pcmFormat);
+            DECODER_DEFS
 #undef DECODER_DEF
         }
     }
@@ -81,11 +80,11 @@ std::unique_ptr<exo::BaseDecoder> createDecoder(
 
 void printDecoderOptions(std::ostream& stream) {
     std::vector<std::string> options;
-    for (const auto& [key, _]: decoders)
+    for (const auto& [key, _] : decoders)
         options.push_back(key);
 
     std::sort(options.begin(), options.end());
-    for (const auto& key: options)
+    for (const auto& key : options)
         std::cout << " " << key;
 }
 

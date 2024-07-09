@@ -46,19 +46,23 @@ void moveOrCopy_(InputIt start, InputIt end, OutputIt destination) {
         std::copy(start, end, destination);
 }
 
-template <typename T>
-class RingBuffer {
+template <typename InputIt> void discard_(InputIt first, InputIt last) {
+    for (; first != last; first++) {
+        [[maybe_unused]] std::remove_cvref_t<decltype(*first)> tmp =
+            std::move(*first);
+    }
+}
+
+template <typename T> class RingBuffer {
     std::vector<T> buffer_;
     std::size_t size_, head_, tail_;
     mutable std::timed_mutex mutex_;
     std::condition_variable_any waitToRead_, waitToWrite_;
-    std::shared_ptr<std::condition_variable_any>
-                    waitToReadExtra_, waitToWriteExtra_;
+    std::shared_ptr<std::condition_variable_any> waitToReadExtra_,
+        waitToWriteExtra_;
     bool closed_{false};
 
-    bool canRead_() const noexcept {
-        return head_ != tail_;
-    }
+    bool canRead_() const noexcept { return head_ != tail_; }
 
     std::size_t lockedToRead_() const noexcept {
         if (head_ < tail_)
@@ -68,8 +72,8 @@ class RingBuffer {
     }
 
     template <typename OutputIt>
-    std::pair<std::size_t, OutputIt> lockedMoveFromBuffer_(
-                        OutputIt d_first, std::size_t count) {
+    std::pair<std::size_t, OutputIt> lockedMoveFromBuffer_(OutputIt d_first,
+                                                           std::size_t count) {
         auto dst = d_first;
         std::size_t totalRead = std::min(count, lockedToRead_());
 
@@ -81,15 +85,33 @@ class RingBuffer {
                 tail_ = totalRead == sliver ? 0 : tail_ + totalRead;
 
             } else {
-                dst = std::move(buffer_.begin() + tail_,
-                                buffer_.end(), dst);
+                dst = std::move(buffer_.begin() + tail_, buffer_.end(), dst);
                 tail_ = totalRead - sliver;
-                dst = std::move(buffer_.begin(),
-                                buffer_.begin() + tail_, dst);
+                dst = std::move(buffer_.begin(), buffer_.begin() + tail_, dst);
             }
         }
 
-        return { totalRead, dst };
+        return {totalRead, dst};
+    }
+
+    std::size_t lockedSkipFromBuffer_(std::size_t count) {
+        std::size_t totalRead = std::min(count, lockedToRead_());
+
+        if (totalRead) {
+            std::size_t sliver = buffer_.size() - tail_;
+            if (totalRead <= sliver) {
+                exo::discard_(buffer_.begin() + tail_,
+                              buffer_.begin() + tail_ + totalRead);
+                tail_ = totalRead == sliver ? 0 : tail_ + totalRead;
+
+            } else {
+                exo::discard_(buffer_.begin() + tail_, buffer_.end());
+                tail_ = totalRead - sliver;
+                exo::discard_(buffer_.begin(), buffer_.begin() + tail_);
+            }
+        }
+
+        return totalRead;
     }
 
     bool canWrite_() const noexcept {
@@ -101,8 +123,8 @@ class RingBuffer {
     }
 
     template <typename InputIt, bool move>
-    std::pair<std::size_t, InputIt> lockedXferToBuffer_(
-                        InputIt first, std::size_t count) {
+    std::pair<std::size_t, InputIt> lockedXferToBuffer_(InputIt first,
+                                                        std::size_t count) {
         auto src = first;
         std::size_t totalWrite = std::min(count, lockedToWrite_());
 
@@ -122,44 +144,44 @@ class RingBuffer {
             src = end;
         }
 
-        return { totalWrite, src };
+        return {totalWrite, src};
     }
 
     template <typename InputIt>
-    std::pair<std::size_t, InputIt> lockedCopyToBuffer_(
-                        InputIt first, std::size_t count) {
+    std::pair<std::size_t, InputIt> lockedCopyToBuffer_(InputIt first,
+                                                        std::size_t count) {
         return lockedXferToBuffer_<InputIt, false>(first, count);
     }
 
     template <typename InputIt>
-    std::pair<std::size_t, InputIt> lockedMoveToBuffer_(
-                        InputIt first, std::size_t count) {
+    std::pair<std::size_t, InputIt> lockedMoveToBuffer_(InputIt first,
+                                                        std::size_t count) {
         return lockedXferToBuffer_<InputIt, true>(first, count);
     }
 
     void didRead_() noexcept {
         waitToWrite_.notify_one();
-        if (waitToWriteExtra_) waitToWriteExtra_->notify_one();
+        if (waitToWriteExtra_)
+            waitToWriteExtra_->notify_one();
     }
 
     void didWrite_() noexcept {
         waitToRead_.notify_one();
-        if (waitToReadExtra_) waitToReadExtra_->notify_one();
+        if (waitToReadExtra_)
+            waitToReadExtra_->notify_one();
     }
 
-public:
+  public:
     RingBuffer(std::size_t size,
                std::shared_ptr<std::condition_variable_any> readCv = nullptr,
                std::shared_ptr<std::condition_variable_any> writeCv = nullptr)
-                    : buffer_(size + 1), size_(size), head_(0), tail_(0),
-                      waitToReadExtra_(readCv), waitToWriteExtra_(writeCv) {
+        : buffer_(size + 1), size_(size), head_(0), tail_(0),
+          waitToReadExtra_(readCv), waitToWriteExtra_(writeCv) {
         buffer_.shrink_to_fit();
     }
 
     /** Returns the number of elements that fit in this buffer. */
-    std::size_t size() const noexcept {
-        return size_;
-    }
+    std::size_t size() const noexcept { return size_; }
 
     /** Returns an approximation of the number of elements that can
         be read right now without blocking. */
@@ -192,8 +214,9 @@ public:
         std::size_t n = 0;
         while (!n) {
             lock.lock();
-            waitToRead_.wait(lock, [this]{ return canRead_() || closed_; });
-            if (closed_ && !canRead_()) break;
+            waitToRead_.wait(lock, [this] { return canRead_() || closed_; });
+            if (closed_ && !canRead_())
+                break;
             std::tie(n, dst) = lockedMoveFromBuffer_(dst, count);
             lock.unlock();
             didRead_();
@@ -212,12 +235,12 @@ public:
     std::size_t readFull(OutputIt d_first, std::size_t count) {
         std::unique_lock lock(mutex_, std::defer_lock);
         auto dst = d_first;
-        std::size_t n;
-        std::size_t originalCount = count;
+        std::size_t n, originalCount = count;
         while (count > 0) {
             lock.lock();
-            waitToRead_.wait(lock, [this]{ return canRead_() || closed_; });
-            if (closed_ && !canRead_()) break;
+            waitToRead_.wait(lock, [this] { return canRead_() || closed_; });
+            if (closed_ && !canRead_())
+                break;
             std::tie(n, dst) = lockedMoveFromBuffer_(dst, count);
             count -= n;
             lock.unlock();
@@ -232,13 +255,34 @@ public:
     std::optional<T> get() {
         std::unique_lock lock(mutex_, std::defer_lock);
         lock.lock();
-        waitToRead_.wait(lock, [this]{ return canRead_() || closed_; });
-        if (closed_ && !canRead_()) return { };
+        waitToRead_.wait(lock, [this] { return canRead_() || closed_; });
+        if (closed_ && !canRead_())
+            return {};
         T value(std::move(buffer_[tail_]));
         tail_ = (tail_ + 1) % buffer_.size();
         lock.unlock();
         didRead_();
-        return { std::move(value) };
+        return {std::move(value)};
+    }
+
+    /** Skips elements in the buffer.. Returns the number of elements
+        skipped. This is blocking until the given number of elements have been
+        skipped. It may return early and return less than requested only
+        if the buffer is closed. */
+    std::size_t skipFull(std::size_t count) {
+        std::unique_lock lock(mutex_, std::defer_lock);
+        std::size_t n, originalCount = count;
+        while (count > 0) {
+            lock.lock();
+            waitToRead_.wait(lock, [this] { return canRead_() || closed_; });
+            if (closed_ && !canRead_())
+                break;
+            n = lockedSkipFromBuffer_(count);
+            count -= n;
+            lock.unlock();
+            didRead_();
+        }
+        return originalCount - count;
     }
 
     /** Returns an approximation of the number of elements that can
@@ -255,7 +299,8 @@ public:
         std::unique_lock lock(mutex_);
         auto n = std::get<0>(lockedCopyToBuffer_(first, count));
         lock.unlock();
-        if (n) didWrite_();
+        if (n)
+            didWrite_();
         return n > 0;
     }
 
@@ -269,8 +314,9 @@ public:
         std::size_t n;
         while (count > 0) {
             lock.lock();
-            waitToWrite_.wait(lock, [this]{ return canWrite_() || closed_; });
-            if (closed_) return;
+            waitToWrite_.wait(lock, [this] { return canWrite_() || closed_; });
+            if (closed_)
+                return;
             std::tie(n, src) = lockedCopyToBuffer_(src, count);
             count -= n;
             lock.unlock();
@@ -293,12 +339,11 @@ public:
                 break;
             else if (!lockWait)
                 lock.lock();
-            if (!waitToWrite_.wait_until(lock, until,
-                                        [this]{
-                                            return canWrite_() || closed_;
-                                        }))
+            if (!waitToWrite_.wait_until(
+                    lock, until, [this] { return canWrite_() || closed_; }))
                 break;
-            if (closed_) break;
+            if (closed_)
+                break;
             std::tie(n, src) = lockedCopyToBuffer_(src, count);
             count -= n;
             lockWait = true;
@@ -318,7 +363,8 @@ public:
         std::unique_lock lock(mutex_);
         auto n = std::get<0>(lockedMoveToBuffer_(first, count));
         lock.unlock();
-        if (n) didWrite_();
+        if (n)
+            didWrite_();
         return n > 0;
     }
 
@@ -335,47 +381,41 @@ public:
         std::size_t n;
         while (count > 0) {
             lock.lock();
-            waitToWrite_.wait(lock, [this]{ return canWrite_() || closed_; });
-            if (closed_) break;
+            waitToWrite_.wait(lock, [this] { return canWrite_() || closed_; });
+            if (closed_)
+                break;
             std::tie(n, src) = lockedMoveToBuffer_(src, count);
             count -= n;
             lock.unlock();
             didWrite_();
         }
 
-        while (count-- > 0) {
-            T temp = std::move(*src++);
-        }
+        exo::discard_(src, src + count);
     }
 
     /** Writes a single element into the array by copying it.
         Blocks until the element is written.
         Returns true if the element was written. This can only return
         false if the buffer is closed before the write succeeds. */
-    bool put(const T& value) {
-        return writeFull(&value, 1) > 0;
-    }
+    bool put(const T& value) { return writeFull(&value, 1) > 0; }
 
     /** Tries ro write a single element into the array by copying it.
         Returns true if the element was written. Returns false if
         the buffer has no space right now, or is closed. */
-    bool putNoWait(const T& value) {
-        return writePartial(&value, 1) > 0;
-    }
+    bool putNoWait(const T& value) { return writePartial(&value, 1) > 0; }
 
     /** Writes a single element into the array by moving it.
         Blocks until the element is written. The value is discarded
         if not written. */
-    void putMove(T&& value) {
-        writeMoveFull(&value, 1);
-    }
+    void putMove(T&& value) { writeMoveFull(&value, 1); }
 
     /** Reads all values from the buffer and discards them,
         effectively clearing it. */
     void clear() {
         {
             std::lock_guard lock(mutex_);
-            for (auto& it: buffer_) it = std::move(T{});
+            for (auto& it : buffer_)
+                it = std::move(T{});
             head_ = tail_ = 0;
         }
         didRead_();
@@ -383,9 +423,7 @@ public:
 
     /** Returns true if the queue has been closed and there will no
         longer be any values to read. */
-    bool closed() noexcept {
-        return closedToReads();
-    }
+    bool closed() noexcept { return closedToReads(); }
 
     /** Returns true if the queue has been closed and there will no
         longer be any values to read. */

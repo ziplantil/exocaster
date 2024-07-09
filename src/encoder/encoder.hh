@@ -35,33 +35,39 @@ DEALINGS IN THE SOFTWARE.
 #include "config.hh"
 #include "packet.hh"
 #include "pcmbuffer.hh"
+#include "resampler/resampler.hh"
 #include "streamformat.hh"
 
 namespace exo {
 
 class UnknownEncoderError : public std::logic_error {
-public:
+  public:
     using std::logic_error::logic_error;
 };
 
 class BaseEncoder {
-protected:
+    static constexpr std::size_t ENCODER_BUFFER = 4096;
+
+  protected:
     std::shared_ptr<exo::PcmBuffer> source_;
     std::vector<std::shared_ptr<exo::PacketRingBuffer>> sinks_;
     exo::PcmFormat pcmFormat_;
     bool startOfTrack_{false};
 
     void packet(std::size_t frameCount, std::span<const exo::byte> data);
+    void packet(unsigned flags, std::size_t frameCount,
+                std::span<const exo::byte> data);
 
-public:
+  public:
     /*
     BaseEncoder(const exo::ConfigObject& config,
                 std::shared_ptr<exo::PcmBuffer> source,
-                exo::PcmFormat pcmFormat);
+                exo::PcmFormat pcmFormat,
+                const exo::ResamplerFactory& resamplerFactory);
     */
     inline BaseEncoder(std::shared_ptr<exo::PcmBuffer> source,
                        exo::PcmFormat pcmFormat)
-            : source_(source), sinks_{}, pcmFormat_(pcmFormat) { }
+        : source_(source), sinks_{}, pcmFormat_(pcmFormat) {}
     EXO_DEFAULT_NONCOPYABLE_VIRTUAL_DESTRUCTOR(BaseEncoder)
 
     virtual exo::StreamFormat streamFormat() const noexcept = 0;
@@ -70,7 +76,7 @@ public:
     // only called with complete frames
     virtual void pcmBlock(std::size_t frameCount,
                           std::span<const exo::byte> data) = 0;
-    virtual void endTrack() { }
+    virtual void endTrack() {}
 
     inline void addSink(std::shared_ptr<exo::PacketRingBuffer> ptr) {
         sinks_.push_back(ptr);
@@ -79,11 +85,10 @@ public:
     void close();
 };
 
-std::unique_ptr<exo::BaseEncoder> createEncoder(
-        const std::string& type,
-        const exo::ConfigObject& config,
-        std::shared_ptr<exo::PcmBuffer> source,
-        exo::PcmFormat pcmFormat);
+std::unique_ptr<exo::BaseEncoder>
+createEncoder(const std::string& type, const exo::ConfigObject& config,
+              std::shared_ptr<exo::PcmBuffer> source, exo::PcmFormat pcmFormat,
+              const exo::ResamplerFactory& resamplerFactory);
 
 void printEncoderOptions(std::ostream& stream);
 

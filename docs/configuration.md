@@ -119,6 +119,17 @@ Example:
 specifies a command called `play` that uses the `lavc` decoder and enables
 ReplayGain in that decoder.
 
+### resampler
+
+An object describing the resampler to use and its configuration
+
+Fields (all optional):
+* `type`: The type of resampler to use. See `resampling.md` for options.
+  The default is to try them in the order described in the document.
+* `config`: The configuration to pass to the resampler.
+
+If omitted, default values are used.
+
 ### pcmbuffer
 
 Provides the configuration for the internal PCM buffers, used to pass data

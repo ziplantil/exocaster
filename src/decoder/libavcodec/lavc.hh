@@ -30,8 +30,9 @@ DEALINGS IN THE SOFTWARE.
 #define DECODER_LIBAVCODEC_LAVC_HH
 
 #include "decoder/decoder.hh"
+#include "slot.hh"
 
-#define USE_LIBAVFILTER 1
+#define USE_LIBAVFILTER 0
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -71,7 +72,7 @@ class LavcGainCalculator {
     bool has_(unsigned short mask) const noexcept;
     bool accepts_(unsigned short mask) noexcept;
 
-public:
+  public:
     void accept() noexcept;
     void replayGain(float value) noexcept;
     void replayGainPeak(float value) noexcept;
@@ -81,24 +82,80 @@ public:
 };
 #endif
 
-class LavcDecodeJob: public exo::BaseDecodeJob {
+struct LavPacket : public PointerSlot<LavPacket, AVPacket> {
+    using PointerSlot::PointerSlot;
+    LavPacket();
+    ~LavPacket() noexcept;
+    EXO_DEFAULT_NONCOPYABLE(LavPacket)
+};
+
+struct LavFrame : public PointerSlot<LavFrame, AVFrame> {
+    using PointerSlot::PointerSlot;
+    LavFrame();
+    ~LavFrame() noexcept;
+    EXO_DEFAULT_NONCOPYABLE(LavFrame)
+};
+
+struct LavFormatInput : public PointerSlot<LavFormatInput, AVFormatContext> {
+    using PointerSlot::PointerSlot;
+    LavFormatInput(AVFormatContext* p);
+    ~LavFormatInput() noexcept;
+    EXO_DEFAULT_NONCOPYABLE(LavFormatInput)
+};
+
+struct LavCodecContext : public PointerSlot<LavCodecContext, AVCodecContext> {
+    using PointerSlot::PointerSlot;
+    LavCodecContext(const AVCodec* codec);
+    ~LavCodecContext() noexcept;
+    EXO_DEFAULT_NONCOPYABLE(LavCodecContext)
+};
+
+#if USE_LIBAVFILTER
+
+struct LavFilterContext
+    : public PointerSlot<LavFilterContext, AVFilterContext> {
+    using PointerSlot::PointerSlot;
+    LavFilterContext(AVFilterContext* p);
+    ~LavFilterContext() noexcept;
+    EXO_DEFAULT_NONCOPYABLE(LavFilterContext)
+};
+
+struct LavFilterGraph : public PointerSlot<LavFilterGraph, AVFilterGraph> {
+    using PointerSlot::PointerSlot;
+    LavFilterGraph();
+    ~LavFilterGraph() noexcept;
+    EXO_DEFAULT_NONCOPYABLE(LavFilterGraph)
+};
+
+#else /* USE_LIBAVFILTER */
+
+struct LavSwrContext : public PointerSlot<LavSwrContext, SwrContext> {
+    using PointerSlot::PointerSlot;
+    LavSwrContext(SwrContext* p);
+    ~LavSwrContext() noexcept;
+    EXO_DEFAULT_NONCOPYABLE(LavSwrContext)
+};
+
+#endif /* USE_LIBAVFILTER */
+
+class LavcDecodeJob : public exo::BaseDecodeJob {
     std::string filePath_;
     exo::LavcDecodeParams params_;
     bool canPlay_{false};
-    AVPacket* packet_{nullptr};
-    AVFrame* frame_{nullptr};
-    AVFormatContext* formatContext_{nullptr};
-    AVCodecContext* codecContext_{nullptr};
+    exo::LavPacket packet_;
+    exo::LavFrame frame_;
+    exo::LavFormatInput formatContext_{nullptr};
+    exo::LavCodecContext codecContext_{nullptr};
 #if USE_LIBAVFILTER
     AVFilterContext* bufferSourceContext_{nullptr};
     AVFilterContext* filterSinkContext_{nullptr};
-    AVFilterGraph* filterGraph_{nullptr};
-    AVFrame* filterFrame_{nullptr};
+    exo::LavFilterGraph filterGraph_{nullptr};
+    exo::LavFrame filterFrame_;
     bool hasReplayGain_{false}, hasR128Gain_{false};
 #else
     exo::LavcGain gain_;
     exo::LavcGainCalculator gainCalculator_;
-    SwrContext* resamplerContext_{nullptr};
+    exo::LavSwrContext resamplerContext_{nullptr};
     int bufferFrameCount_;
     exo::byte* buffer_;
 #endif
@@ -123,7 +180,7 @@ class LavcDecodeJob: public exo::BaseDecodeJob {
 #endif
     void flush_(std::shared_ptr<exo::PcmSplitter>& sink);
 
-public:
+  public:
     LavcDecodeJob(std::shared_ptr<exo::PcmSplitter> sink,
                   exo::PcmFormat pcmFormat,
                   std::shared_ptr<exo::ConfigObject> command,
@@ -136,15 +193,15 @@ public:
     void run(std::shared_ptr<exo::PcmSplitter> sink);
 };
 
-class LavcDecoder: public exo::BaseDecoder {
+class LavcDecoder : public exo::BaseDecoder {
     exo::LavcDecodeParams params_;
 
-public:
+  public:
     LavcDecoder(const exo::ConfigObject& config, exo::PcmFormat pcmFormat);
 
-    std::optional<std::unique_ptr<BaseDecodeJob>> createJob(
-            const exo::ConfigObject& request,
-            std::shared_ptr<exo::ConfigObject> command);
+    std::optional<std::unique_ptr<BaseDecodeJob>>
+    createJob(const exo::ConfigObject& request,
+              std::shared_ptr<exo::ConfigObject> command);
 };
 
 } // namespace exo

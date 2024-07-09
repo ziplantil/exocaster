@@ -29,8 +29,8 @@ DEALINGS IN THE SOFTWARE.
 #ifndef CONFIG_HH
 #define CONFIG_HH
 
-#include <cstdint>
 #include <concepts>
+#include <cstdint>
 #include <limits>
 #include <stdexcept>
 #include <type_traits>
@@ -48,13 +48,10 @@ class InvalidConfigError : public std::logic_error {
 namespace cfg {
 
 /** Returns an empty ConfigObject. */
-inline exo::ConfigObject empty() noexcept {
-    return exo::ConfigObject(nullptr);
-}
+inline exo::ConfigObject empty() noexcept { return exo::ConfigObject(nullptr); }
 
 /** Parses a ConfigObject from a C++ file or stream. */
-template <typename T>
-inline exo::ConfigObject parseFromFile(T& stream) {
+template <typename T> inline exo::ConfigObject parseFromFile(T& stream) {
     return nlohmann::json::parse(stream);
 }
 
@@ -64,8 +61,7 @@ inline exo::ConfigObject parseFromMemory(Iterator begin, Iterator end) {
     return nlohmann::json::parse(begin, end);
 }
 
-template <std::signed_integral T>
-T rangeCheckInt_(std::intmax_t value) {
+template <std::signed_integral T> T rangeCheckInt_(std::intmax_t value) {
     if (value < static_cast<std::intmax_t>(std::numeric_limits<T>::min()))
         throw std::range_error("value");
     if (value > static_cast<std::intmax_t>(std::numeric_limits<T>::max()))
@@ -73,8 +69,7 @@ T rangeCheckInt_(std::intmax_t value) {
     return static_cast<T>(value);
 }
 
-template <std::unsigned_integral T>
-T rangeCheckUInt_(std::uintmax_t value) {
+template <std::unsigned_integral T> T rangeCheckUInt_(std::uintmax_t value) {
     if (value > static_cast<std::uintmax_t>(std::numeric_limits<T>::max()))
         throw std::range_error("value");
     return static_cast<T>(value);
@@ -93,9 +88,7 @@ inline const exo::ConfigObject& key(const exo::ConfigObject& c,
 }
 
 /** Checks whether the ConfigObject is null. */
-inline bool isNull(const exo::ConfigObject& c) noexcept {
-    return c.is_null();
-}
+inline bool isNull(const exo::ConfigObject& c) noexcept { return c.is_null(); }
 
 /** Checks whether the ConfigObject is a boolean. */
 inline bool isBoolean(const exo::ConfigObject& c) noexcept {
@@ -290,8 +283,7 @@ inline std::string getString(const exo::ConfigObject& c,
 
 /** Gets the boolean value of a ConfigObject by key.
     Throws if not a boolean. */
-inline bool namedBoolean(const exo::ConfigObject& c,
-                         const std::string& name) {
+inline bool namedBoolean(const exo::ConfigObject& c, const std::string& name) {
     return cfg::getBoolean(cfg::key(c, name));
 }
 
@@ -312,8 +304,7 @@ inline std::uintmax_t namedUIntMax(const exo::ConfigObject& c,
 /** Gets the floating-point value of a ConfigObject by key.
     If not assignable to floating-point number or missing,
     returns the fallback. */
-inline double namedFloat(const exo::ConfigObject& c,
-                         const std::string& name) {
+inline double namedFloat(const exo::ConfigObject& c, const std::string& name) {
     return cfg::getFloat(cfg::key(c, name));
 }
 
@@ -326,9 +317,10 @@ inline std::string namedString(const exo::ConfigObject& c,
 
 /** Gets the boolean value of a ConfigObject by key.
     If not a boolean or missing, returns the fallback. */
-inline bool namedBoolean(const exo::ConfigObject& c,
-                         const std::string& name, bool fallback) {
-    if (!cfg::hasKey(c, name)) return fallback;
+inline bool namedBoolean(const exo::ConfigObject& c, const std::string& name,
+                         bool fallback) {
+    if (!cfg::hasKey(c, name))
+        return fallback;
     return cfg::getBoolean(cfg::key(c, name), fallback);
 }
 
@@ -337,7 +329,8 @@ inline bool namedBoolean(const exo::ConfigObject& c,
 inline std::intmax_t namedIntMax(const exo::ConfigObject& c,
                                  const std::string& name,
                                  std::intmax_t fallback) {
-    if (!cfg::hasKey(c, name)) return fallback;
+    if (!cfg::hasKey(c, name))
+        return fallback;
     return cfg::getIntMax(cfg::key(c, name), fallback);
 }
 
@@ -346,16 +339,18 @@ inline std::intmax_t namedIntMax(const exo::ConfigObject& c,
 inline std::uintmax_t namedUIntMax(const exo::ConfigObject& c,
                                    const std::string& name,
                                    std::uintmax_t fallback) {
-    if (!cfg::hasKey(c, name)) return fallback;
+    if (!cfg::hasKey(c, name))
+        return fallback;
     return cfg::getUIntMax(cfg::key(c, name), fallback);
 }
 
 /** Gets the floating-point value of a ConfigObject by key.
     If not assignable to floating-point number or missing,
     returns the fallback. */
-inline double namedFloat(const exo::ConfigObject& c,
-                         const std::string& name, double fallback) {
-    if (!cfg::hasKey(c, name)) return fallback;
+inline double namedFloat(const exo::ConfigObject& c, const std::string& name,
+                         double fallback) {
+    if (!cfg::hasKey(c, name))
+        return fallback;
     return cfg::getFloat(cfg::key(c, name), fallback);
 }
 
@@ -364,22 +359,21 @@ inline double namedFloat(const exo::ConfigObject& c,
 inline std::string namedString(const exo::ConfigObject& c,
                                const std::string& name,
                                const std::string& fallback) {
-    if (!cfg::hasKey(c, name)) return fallback;
+    if (!cfg::hasKey(c, name))
+        return fallback;
     return cfg::getString(cfg::key(c, name), fallback);
 }
 
 /** Gets the integer value of a ConfigObject.
     Throws if the value is out of range, is missing or is not an integer. */
-template <std::signed_integral T>
-T getInt(const exo::ConfigObject& c) {
+template <std::signed_integral T> T getInt(const exo::ConfigObject& c) {
     return cfg::rangeCheckInt_<T>(cfg::getIntMax(c));
 }
 
 /** Gets the unsigned integer value of a ConfigObject.
     Throws if the value is out of range, is missing or
     is not an unsigned integer. */
-template <std::unsigned_integral T>
-T getUInt(const exo::ConfigObject& c) {
+template <std::unsigned_integral T> T getUInt(const exo::ConfigObject& c) {
     return cfg::rangeCheckUInt_<T>(cfg::getUIntMax(c));
 }
 
@@ -432,18 +426,13 @@ T namedUInt(const exo::ConfigObject& c, const std::string& name, T fallback) {
 
 /** Returns something that can be iterated to iterate over the items
     in a ConfigObject that is an array. */
-inline const auto& iterateArray(const exo::ConfigObject& c) {
-    return c;
-}
+inline const auto& iterateArray(const exo::ConfigObject& c) { return c; }
 
 /** Returns something that can be iterated to iterate over the key-value pairs
     in a ConfigObject that is an object. */
-inline auto iterateObject(const exo::ConfigObject& c) {
-    return c.items();
-}
+inline auto iterateObject(const exo::ConfigObject& c) { return c.items(); }
 
-template <typename T>
-struct false_ : std::false_type { };
+template <typename T> struct false_ : std::false_type {};
 
 template <typename T>
 bool hasOfType_(const exo::ConfigObject& c, const std::string& name) {
@@ -479,9 +468,7 @@ T readOfType_(const exo::ConfigObject& c, const std::string& name) {
                       "unsupported type for mustRead/mayRead");
 }
 
-
-template <typename T>
-std::string formatTypeName_() {
+template <typename T> std::string formatTypeName_() {
     if constexpr (std::is_same_v<T, bool>)
         return "a boolean";
     else if constexpr (std::is_unsigned_v<T>)
@@ -502,12 +489,12 @@ std::string formatTypeName_() {
 template <typename T>
 T mustRead(const exo::ConfigObject& c, const std::string& name) {
     if (!cfg::hasKey(c, name))
-        throw exo::InvalidConfigError(
-            "missing required field '" + name + "' in configuration");
+        throw exo::InvalidConfigError("missing required field '" + name +
+                                      "' in configuration");
     if (!cfg::hasOfType_<T>(c, name))
-        throw exo::InvalidConfigError(
-            "field '" + name + "' in configuration is not "
-                + formatTypeName_<T>());
+        throw exo::InvalidConfigError("field '" + name +
+                                      "' in configuration is not " +
+                                      formatTypeName_<T>());
     return cfg::readOfType_<T>(c, name);
 }
 
@@ -528,13 +515,16 @@ template <typename T>
 T mustRead(const exo::ConfigObject& c, const std::string& section,
            const std::string& name) {
     if (!cfg::hasKey(c, name))
-        throw exo::InvalidConfigError(
-            "missing required field '" + name + "' in "
-            "configuration section '" + section + "'");
+        throw exo::InvalidConfigError("missing required field '" + name +
+                                      "' in "
+                                      "configuration section '" +
+                                      section + "'");
     if (!cfg::hasOfType_<T>(c, name))
-        throw exo::InvalidConfigError(
-            "field '" + name + "' in configuration section '" + section + "' "
-            "is not " + formatTypeName_<T>());
+        throw exo::InvalidConfigError("field '" + name +
+                                      "' in configuration section '" + section +
+                                      "' "
+                                      "is not " +
+                                      formatTypeName_<T>());
     return readOfType_<T>(c, name);
 }
 
@@ -550,7 +540,7 @@ T mayRead(const exo::ConfigObject& c, const std::string& section,
     return mustRead<T>(c, section, name);
 }
 
-}; // namespace exo::cfg
+}; // namespace cfg
 
 } // namespace exo
 

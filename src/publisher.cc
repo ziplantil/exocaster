@@ -26,8 +26,8 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
-#include "log.hh"
 #include "publisher.hh"
+#include "log.hh"
 #include "server.hh"
 
 namespace exo {
@@ -45,7 +45,8 @@ static bool convertEvent(const exo::PublishedEvent& event,
                          std::ostream& stream) {
     if (std::holds_alternative<exo::CommandAcknowledgeEvent>(event)) {
         auto& e = std::get<exo::CommandAcknowledgeEvent>(event);
-        if (!e.command) return false;
+        if (!e.command)
+            return false;
         nlohmann::json message;
         message["type"] = "acknowledge";
         if (e.encoderIndex == exo::CommandAcknowledgeEvent::NO_ENCODER) {
@@ -64,7 +65,8 @@ static bool convertEvent(const exo::PublishedEvent& event,
 void PublishQueue::run() {
     while (EXO_LIKELY(exo::shouldRun())) {
         auto event = events_.get();
-        if (!event.has_value()) return;
+        if (!event.has_value())
+            return;
 
         if (exo::convertEvent(event.value(), queue_->write()))
             queue_->writeLine();
@@ -75,30 +77,25 @@ void PublishQueue::push(const exo::PublishedEvent& event) {
     events_.putNoWait(event);
 }
 
-void PublishQueue::close() {
-    events_.close();
-}
+void PublishQueue::close() { events_.close(); }
 
 void Publisher::push_(const exo::PublishedEvent& event) {
-    for (auto& queue: queues_)
+    for (auto& queue : queues_)
         queue->push(event);
 }
 
 void Publisher::acknowledgeDecoderCommand(
-                std::shared_ptr<exo::ConfigObject> command) {
+    std::shared_ptr<exo::ConfigObject> command) {
     auto event = exo::CommandAcknowledgeEvent{
         .encoderIndex = exo::CommandAcknowledgeEvent::NO_ENCODER,
-        .command = command
-    };
+        .command = command};
     push_(event);
 }
 
-void Publisher::acknowledgeEncoderCommand(std::size_t encoderIndex,
-                std::shared_ptr<exo::ConfigObject> command) {
-    auto event = exo::CommandAcknowledgeEvent{
-        .encoderIndex = encoderIndex,
-        .command = command
-    };
+void Publisher::acknowledgeEncoderCommand(
+    std::size_t encoderIndex, std::shared_ptr<exo::ConfigObject> command) {
+    auto event = exo::CommandAcknowledgeEvent{.encoderIndex = encoderIndex,
+                                              .command = command};
     push_(event);
 }
 
@@ -108,17 +105,17 @@ void Publisher::startQueue_(std::unique_ptr<exo::PublishQueue>& queue) {
 }
 
 void Publisher::start() {
-    for (auto& queue: queues_)
+    for (auto& queue : queues_)
         startQueue_(queue);
 }
 
 void Publisher::close() {
-    for (auto& queue: queues_)
+    for (auto& queue : queues_)
         queue->close();
 }
 
 void Publisher::stop() {
-    for (auto& thread: threads_)
+    for (auto& thread : threads_)
         thread.join();
     threads_.clear();
 }

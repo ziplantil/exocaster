@@ -35,8 +35,9 @@ namespace exo {
 
 PcmEncoder::PcmEncoder(const exo::ConfigObject& config,
                        std::shared_ptr<exo::PcmBuffer> source,
-                       exo::PcmFormat pcmFormat):
-            BaseEncoder(source, pcmFormat) {
+                       exo::PcmFormat pcmFormat,
+                       const exo::ResamplerFactory& resamplerFactory)
+    : BaseEncoder(source, pcmFormat) {
     metadata_ = cfg::namedBoolean(config, "metadata", false);
 }
 
@@ -47,7 +48,7 @@ exo::StreamFormat PcmEncoder::streamFormat() const noexcept {
 void PcmEncoder::startTrack(const exo::Metadata& metadata) {
     if (metadata_) {
         EXO_LOG("pcm metadata dump");
-        for (const auto& [key, value]: metadata) {
+        for (const auto& [key, value] : metadata) {
             EXO_LOG("pcm metadata : %s=%s", key.c_str(), value.c_str());
         }
     }

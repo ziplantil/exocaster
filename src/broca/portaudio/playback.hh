@@ -30,6 +30,8 @@ DEALINGS IN THE SOFTWARE.
 #define BROCA_PORTAUDIO_PLAYBACK_HH
 
 #include "broca/broca.hh"
+#include "refcount.hh"
+#include "slot.hh"
 #include "util.hh"
 
 extern "C" {
@@ -38,21 +40,32 @@ extern "C" {
 
 namespace exo {
 
-class PortAudioBroca: public exo::BaseBroca {
-    PaStream* paStream_;
+struct PortAudioGlobal : exo::GlobalLibrary<exo::PortAudioGlobal> {
+    void init();
+    void quit();
+};
+
+struct PortAudioStream : public PointerSlot<PortAudioStream, PaStream> {
+    using PointerSlot::PointerSlot;
+    PortAudioStream(PaStream* p);
+    ~PortAudioStream() noexcept;
+    EXO_DEFAULT_NONCOPYABLE(PortAudioStream)
+};
+
+class PortAudioBroca : public exo::BaseBroca {
+    exo::PortAudioGlobal global_;
+    PortAudioStream stream_;
     std::size_t bytesPerFrame_;
     PacketRingBuffer::PacketRead packet_;
 
-protected:
+  protected:
     void runImpl();
 
-public:
+  public:
     PortAudioBroca(const exo::ConfigObject& config,
                    std::shared_ptr<exo::PacketRingBuffer> source,
                    const exo::StreamFormat& streamFormat,
                    unsigned long frameRate);
-    EXO_DEFAULT_NONCOPYABLE(PortAudioBroca)
-    ~PortAudioBroca() noexcept;
 
     int streamCallback(const void* input, void* output,
                        unsigned long frameCount,

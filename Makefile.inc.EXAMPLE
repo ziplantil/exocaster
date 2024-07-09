@@ -3,11 +3,14 @@
 # _CXXFLAGS are passed to the C++ compiler
 # _LDLIBS are passed to the linker
 
+# 0 to build a debug build, 1 to build a release build
+RELEASE=0
+
 # Any additional flags to pass to the compiler and linker.
 CUSTOM_CXXFLAGS=
 CUSTOM_LDFLAGS=
 
-# Libraries: libavcodec, for lavc decoder
+# Libraries: libavcodec, for lavc decoder and libswresample resampler
 LIBAVCODEC_ENABLE=1
 LIBAVCODEC_CXXFLAGS=
 LIBAVCODEC_LDLIBS=-lavcodec -lavformat -lavutil -lavfilter -lswresample
@@ -21,6 +24,26 @@ LIBVORBIS_LDLIBS=-lvorbis -lvorbisenc -logg
 LIBFLAC_ENABLE=0
 LIBFLAC_CXXFLAGS=
 LIBFLAC_LDLIBS=-lFLAC -logg
+
+# Libraries: libopus, for oggopus encoder
+LIBOPUS_ENABLE=0
+LIBOPUS_CXXFLAGS=
+LIBOPUS_LDLIBS=-lopus -logg
+
+# Libraries: LAME, for mp3 encoder
+MP3LAME_ENABLE=0
+MP3LAME_CXXFLAGS=
+MP3LAME_LDLIBS=-lmp3lame
+
+# Libraries: soxr, for soxr resampler
+SOXR_ENABLE=1
+SOXR_CXXFLAGS=
+SOXR_LDLIBS=-lsoxr
+
+# Libraries: libsamplerate, for libsamplerate resampler
+LIBSAMPLERATE_ENABLE=0
+LIBSAMPLERATE_CXXFLAGS=
+LIBSAMPLERATE_LDLIBS=-lsamplerate
 
 # Libraries: libshout, for shout broca
 SHOUT_ENABLE=0

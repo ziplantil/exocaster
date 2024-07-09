@@ -41,30 +41,29 @@ static std::shared_ptr<exo::Metadata> empty_;
 PcmBuffer::PcmBuffer(std::size_t subindex, const exo::PcmFormat& pcmFormat,
                      std::size_t bufferSize,
                      std::shared_ptr<exo::Publisher> publisher,
-                     const exo::PcmBufferConfig& config):
-        pcm_(bufferSize), pcmFormat_(pcmFormat),
-        subindex_(subindex), publisher_(publisher),
-        skip_(config.skip),
-        frameClock_(pcmFormat.rate),
-        marginUs_(static_cast<std::uint_least64_t>(
-                config.skipmargin * std::micro::den)),
-        skipFactor_(std::min(
-            static_cast<decltype(skipFactor_)>(1000) << SKIP_FACTOR_FRAC_BITS,
-            static_cast<decltype(skipFactor_)>(config.skipfactor
-                    * SKIP_FACTOR_FRAC_BITS)) / pcmFormat_.bytesPerFrame()) {
-}
+                     const exo::PcmBufferConfig& config)
+    : pcm_(bufferSize), pcmFormat_(pcmFormat), subindex_(subindex),
+      publisher_(publisher), skip_(config.skip), frameClock_(pcmFormat.rate),
+      marginUs_(static_cast<std::uint_least64_t>(config.skipmargin *
+                                                 std::micro::den)),
+      skipFactor_(std::min(static_cast<decltype(skipFactor_)>(1000)
+                               << SKIP_FACTOR_FRAC_BITS,
+                           static_cast<decltype(skipFactor_)>(
+                               config.skipfactor * SKIP_FACTOR_FRAC_BITS)) /
+                  pcmFormat_.bytesPerFrame()) {}
 
 std::shared_ptr<exo::Metadata> PcmBuffer::readMetadata() {
     std::unique_lock lock(mutex_);
     // some of this song still left, or no more metadata changes queued
-    if (songHead_ == songTail_ || pcmLeft_) return std::move(empty_);
+    if (songHead_ == songTail_ || pcmLeft_)
+        return std::move(empty_);
     // read next metadata and return it
     auto index = songTail_;
     songTail_ = (songTail_ + 1) % songChanges_.size();
     pcmLeft_ = std::exchange(songChanges_[index].pcmBytes, 0);
     auto metadata = std::exchange(songChanges_[index].metadata, nullptr);
     publisher_->acknowledgeEncoderCommand(subindex_,
-                                songChanges_[index].command);
+                                          songChanges_[index].command);
     lock.unlock();
     hasPcm_.notify_all();
     return metadata;
@@ -77,11 +76,13 @@ std::size_t PcmBuffer::readPcm(std::span<exo::byte> destination) {
         hasPcm_.wait(lock, [this]() {
             return pcmLeft_ > 0 || songHead_ != songTail_ || closed_;
         });
-        if (pcmLeft_ == 0 && songHead_ == songTail_ && closed_) return 0;
+        if (pcmLeft_ == 0 && songHead_ == songTail_ && closed_)
+            return 0;
     }
     canRead = std::min(pcmLeft_, destination.size());
     canRead -= canRead % pcmFormat_.bytesPerFrame();
-    if (!canRead) return canRead;
+    if (!canRead)
+        return canRead;
     pcmLeft_ -= canRead;
     lock.unlock();
     pcm_.readFull(destination.begin(), canRead);
@@ -90,7 +91,8 @@ std::size_t PcmBuffer::readPcm(std::span<exo::byte> destination) {
 
 void PcmBuffer::writeMetadata(std::shared_ptr<exo::ConfigObject> command,
                               std::shared_ptr<exo::Metadata> metadata) {
-    if (closed_) return;
+    if (closed_)
+        return;
     std::unique_lock lock(mutex_);
     if (metadataFull_()) {
         // metadata queue is full
@@ -113,7 +115,8 @@ void PcmBuffer::writeMetadata(std::shared_ptr<exo::ConfigObject> command,
 }
 
 void PcmBuffer::writePcm(std::span<const exo::byte> data) {
-    if (closed_) return;
+    if (closed_)
+        return;
     if (firstPcm_) {
         firstPcm_ = false;
         frameClock_.reset();
@@ -131,9 +134,9 @@ void PcmBuffer::writePcm(std::span<const exo::byte> data) {
 
         if (written < data.size() && exo::shouldRun()) {
             auto waited = std::chrono::steady_clock::now() - timeBefore;
-            EXO_LOG("buffer overrun: %zu < %zu, waited %0.3f ms",
-                    written, data.size(), std::chrono::duration<double,
-                            std::milli>(waited).count());
+            EXO_LOG("buffer overrun: %zu < %zu, waited %0.3f ms", written,
+                    data.size(),
+                    std::chrono::duration<double, std::milli>(waited).count());
         }
     } else {
         pcm_.writeFull(data.begin(), data.size());
@@ -172,22 +175,20 @@ void PcmBuffer::close() noexcept {
     hasPcm_.notify_all();
 }
 
-bool PcmBuffer::closed() const noexcept {
-    return closed_;
-}
+bool PcmBuffer::closed() const noexcept { return closed_; }
 
 PcmSplitter::PcmSplitter(const exo::PcmFormat& pcmFormat,
                          std::size_t bufferSize,
                          std::shared_ptr<exo::Publisher> publisher)
-     : buffers_{}, pcmFormat_(pcmFormat),
-       bufferSize_(bufferSize), publisher_(publisher),
-       chop_(static_cast<std::size_t>(pcmFormat.bytesPerFrame() *
-                pcmFormat.rate / 4)) {}
+    : buffers_{}, pcmFormat_(pcmFormat), bufferSize_(bufferSize),
+      publisher_(publisher),
+      chop_(static_cast<std::size_t>(pcmFormat.bytesPerFrame() *
+                                     pcmFormat.rate / 4)) {}
 
-std::shared_ptr<exo::PcmBuffer> PcmSplitter::addBuffer(
-                const exo::PcmBufferConfig& config) {
+std::shared_ptr<exo::PcmBuffer>
+PcmSplitter::addBuffer(const exo::PcmBufferConfig& config) {
     auto ptr = std::make_shared<exo::PcmBuffer>(
-                bufferIndex_++, pcmFormat_, bufferSize_, publisher_, config);
+        bufferIndex_++, pcmFormat_, bufferSize_, publisher_, config);
     buffers_.push_back(ptr);
     return ptr;
 }
@@ -196,7 +197,7 @@ void PcmSplitter::metadata(std::shared_ptr<exo::ConfigObject> command,
                            const exo::Metadata& metadata) {
     auto metadataPtr = std::make_shared<exo::Metadata>(metadata);
     publisher_->acknowledgeDecoderCommand(command);
-    for (const auto& buffer: buffers_)
+    for (const auto& buffer : buffers_)
         buffer->writeMetadata(command, metadataPtr);
 }
 
@@ -206,8 +207,8 @@ void PcmSplitter::pcm(std::span<const exo::byte> data) {
 
     while (size) {
         std::size_t block = std::min(size, chop_);
-        std::span<const byte> subspan{ ptr, block };
-        for (const auto& buffer: buffers_)
+        std::span<const byte> subspan{ptr, block};
+        for (const auto& buffer : buffers_)
             buffer->writePcm(subspan);
         ptr += block, size -= block;
     }

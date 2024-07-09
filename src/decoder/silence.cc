@@ -26,8 +26,8 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
-#include "config.hh"
 #include "decoder/silence.hh"
+#include "config.hh"
 #include "log.hh"
 #include "pcmconvert.hh"
 #include "pcmtypes.hh"
@@ -42,20 +42,20 @@ void SilenceDecodeJob::run(std::shared_ptr<exo::PcmSplitter> sink) {
     exo::byte* destination = block;
     for (std::size_t i = 0; i < framesPerBlock; ++i)
         for (unsigned j = 0; j < exo::channelCount(pcmFormat_.channels); ++j)
-            destination = exo::outputSample(destination,
-                                            pcmFormat_.sample, 0.0);
+            destination =
+                exo::outputSample(destination, pcmFormat_.sample, 0.0);
 
     sink->metadata(command_, {});
     while (EXO_LIKELY(exo::shouldRun() && frames_ > 0)) {
         std::size_t framesThisBlock = std::min(frames_, framesPerBlock);
         frames_ -= framesThisBlock;
-        sink->pcm({ block, framesThisBlock * pcmFormat_.bytesPerFrame() });
+        sink->pcm({block, framesThisBlock * pcmFormat_.bytesPerFrame()});
     }
 }
 
-std::optional<std::unique_ptr<BaseDecodeJob>> SilenceDecoder::createJob(
-            const exo::ConfigObject& request,
-            std::shared_ptr<exo::ConfigObject> command) {
+std::optional<std::unique_ptr<BaseDecodeJob>>
+SilenceDecoder::createJob(const exo::ConfigObject& request,
+                          std::shared_ptr<exo::ConfigObject> command) {
     if (!cfg::isFloat(request)) {
         EXO_LOG("silence decoder: "
                 "config not a non-negative number, ignoring.");
@@ -70,8 +70,8 @@ std::optional<std::unique_ptr<BaseDecodeJob>> SilenceDecoder::createJob(
     }
 
     auto frames = pcmFormat_.durationToFrameCount(duration);
-    return { std::make_unique<exo::SilenceDecodeJob>(sink_, pcmFormat_,
-                command, frames) };
+    return {std::make_unique<exo::SilenceDecodeJob>(sink_, pcmFormat_, command,
+                                                    frames)};
 }
 
 } // namespace exo

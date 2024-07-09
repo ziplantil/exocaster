@@ -38,33 +38,55 @@ extern "C" {
 
 namespace exo {
 
+void PortAudioGlobal::init() {
+
+    PaError err = Pa_Initialize();
+    if (err != paNoError) {
+        EXO_LOG("PortAudio failed to initialize (%d): %s", err,
+                Pa_GetErrorText(err));
+        throw std::runtime_error("Pa_Initialize failed");
+    }
+}
+
+void PortAudioGlobal::quit() {
+    PaError err = Pa_Terminate();
+    if (err != paNoError)
+        EXO_LOG("Pa_Terminate failed: %s", Pa_GetErrorText(err));
+}
+
 extern "C" {
-
-static int streamCallback(const void *input, void *output,
+static int streamCallback(const void* input, void* output,
                           unsigned long frameCount,
-                          const PaStreamCallbackTimeInfo *timeInfo,
-                          PaStreamCallbackFlags statusFlags,
-                          void *userData) {
-    return reinterpret_cast<PortAudioBroca *>(userData)->streamCallback(
-            input, output, frameCount, timeInfo, statusFlags);
+                          const PaStreamCallbackTimeInfo* timeInfo,
+                          PaStreamCallbackFlags statusFlags, void* userData) {
+    return reinterpret_cast<PortAudioBroca*>(userData)->streamCallback(
+        input, output, frameCount, timeInfo, statusFlags);
+}
 }
 
-}
-
-template <typename T>
-static T roundUpToTwo_(T value) {
+template <typename T> static T roundUpToTwo_(T value) {
     --value;
     for (unsigned shiftCount = 1; shiftCount < sizeof(T) * CHAR_BIT;
-                shiftCount <<= 1)
+         shiftCount <<= 1)
         value |= value >> shiftCount;
     return value + 1;
 }
 
+PortAudioStream::PortAudioStream(PaStream* p) : PointerSlot(p) {
+    if (!has())
+        throw std::bad_alloc();
+}
+
+PortAudioStream::~PortAudioStream() noexcept {
+    if (has())
+        Pa_CloseStream(release());
+}
+
 PortAudioBroca::PortAudioBroca(const exo::ConfigObject& config,
-                        std::shared_ptr<exo::PacketRingBuffer> source,
-                        const exo::StreamFormat& streamFormat,
-                        unsigned long frameRate)
-                 : BaseBroca(source, frameRate) {
+                               std::shared_ptr<exo::PacketRingBuffer> source,
+                               const exo::StreamFormat& streamFormat,
+                               unsigned long frameRate)
+    : BaseBroca(source, frameRate), stream_(nullptr) {
     PaError err = paNoError;
     PaStreamParameters streamParameters;
 
@@ -74,13 +96,6 @@ PortAudioBroca::PortAudioBroca(const exo::ConfigObject& config,
 
     bytesPerFrame_ = pcmFormat.bytesPerFrame();
 
-    err = Pa_Initialize();
-    if (err != paNoError) {
-        EXO_LOG("PortAudio failed to initialize (%d): %s",
-                err, Pa_GetErrorText(err));
-        throw std::runtime_error("Pa_Initialize failed");
-    }
-
     streamParameters.device = Pa_GetDefaultOutputDevice();
     if (streamParameters.device == paNoDevice) {
         EXO_LOG("PortAudio has no default output device");
@@ -89,74 +104,66 @@ PortAudioBroca::PortAudioBroca(const exo::ConfigObject& config,
 
     streamParameters.channelCount = exo::channelCount(pcmFormat.channels);
     switch (pcmFormat.sample) {
-        case exo::PcmSampleFormat::S8:
-            streamParameters.sampleFormat = paInt8;
-            break;
-        case exo::PcmSampleFormat::U8:
-            streamParameters.sampleFormat = paUInt8;
-            break;
-        case exo::PcmSampleFormat::S16:
-            streamParameters.sampleFormat = paInt16;
-            break;
-        case exo::PcmSampleFormat::F32:
-            streamParameters.sampleFormat = paFloat32;
-            break;
-        default:
-            EXO_UNREACHABLE;
-            throw std::runtime_error("unsupported sample format for "
-                                     "PortAudio broca");
+    case exo::PcmSampleFormat::S8:
+        streamParameters.sampleFormat = paInt8;
+        break;
+    case exo::PcmSampleFormat::U8:
+        streamParameters.sampleFormat = paUInt8;
+        break;
+    case exo::PcmSampleFormat::S16:
+        streamParameters.sampleFormat = paInt16;
+        break;
+    case exo::PcmSampleFormat::F32:
+        streamParameters.sampleFormat = paFloat32;
+        break;
+    default:
+        EXO_UNREACHABLE;
+        throw std::runtime_error("unsupported sample format for "
+                                 "PortAudio broca");
     }
 
     streamParameters.suggestedLatency =
-            Pa_GetDeviceInfo(streamParameters.device)
-                ->defaultHighOutputLatency;
+        Pa_GetDeviceInfo(streamParameters.device)->defaultHighOutputLatency;
     streamParameters.hostApiSpecificStreamInfo = NULL;
 
-    err = Pa_OpenStream(&paStream_,
-                        NULL,
-                        &streamParameters,
-                        pcmFormat.rate,
-                        exo::roundUpToTwo_(pcmFormat.rate / 10),
-                        paClipOff,
-                        &exo::streamCallback,
-                        this);
+    PaStream* paStream;
+    err = Pa_OpenStream(&paStream, NULL, &streamParameters, pcmFormat.rate,
+                        exo::roundUpToTwo_(pcmFormat.rate / 10), paClipOff,
+                        &exo::streamCallback, this);
     if (err != paNoError) {
-        EXO_LOG("PortAudio failed to open stream (%d): %s",
-                err, Pa_GetErrorText(err));
+        EXO_LOG("PortAudio failed to open stream (%d): %s", err,
+                Pa_GetErrorText(err));
         throw std::runtime_error("Pa_OpenStream failed");
     }
-}
-
-PortAudioBroca::~PortAudioBroca() noexcept {
-    Pa_CloseStream(paStream_);
-    Pa_Terminate();
+    stream_.reset(paStream);
 }
 
 void PortAudioBroca::runImpl() {
     PaError err = paNoError;
 
-    err = Pa_StartStream(paStream_);
+    auto stream = stream_.get();
+    err = Pa_StartStream(stream);
     if (err != paNoError) {
-        EXO_LOG("PortAudio failed to start stream (%d): %s",
-                err, Pa_GetErrorText(err));
+        EXO_LOG("PortAudio failed to start stream (%d): %s", err,
+                Pa_GetErrorText(err));
         return;
     }
 
-    while (EXO_LIKELY((err = Pa_IsStreamActive(paStream_)) == 1))
+    while (EXO_LIKELY((err = Pa_IsStreamActive(stream)) == 1))
         Pa_Sleep(500);
 
     Pa_Sleep(500);
-    Pa_StopStream(paStream_);
+    Pa_StopStream(stream);
 }
 
 int PortAudioBroca::streamCallback(const void* input, void* output,
-                    unsigned long frameCount,
-                    const PaStreamCallbackTimeInfo* timeInfo,
-                    PaStreamCallbackFlags statusFlags) {
+                                   unsigned long frameCount,
+                                   const PaStreamCallbackTimeInfo* timeInfo,
+                                   PaStreamCallbackFlags statusFlags) {
     auto destination = reinterpret_cast<unsigned char*>(output);
     std::memset(output, 0, frameCount * bytesPerFrame_);
     std::size_t n = source_->readDirectFull(packet_, destination,
-                                       frameCount * bytesPerFrame_);
+                                            frameCount * bytesPerFrame_);
     if (EXO_UNLIKELY(!n))
         return paComplete;
     if (EXO_UNLIKELY(!exo::shouldRun()))

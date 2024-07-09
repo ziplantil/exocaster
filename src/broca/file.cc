@@ -29,14 +29,16 @@ DEALINGS IN THE SOFTWARE.
 #include "broca/file.hh"
 #include "config.hh"
 #include "log.hh"
+#include "packet.hh"
 #include "server.hh"
 
 namespace exo {
 
 FileBroca::FileBroca(const exo::ConfigObject& config,
-                 std::shared_ptr<exo::PacketRingBuffer> source,
-                 const exo::StreamFormat& streamFormat,
-                 unsigned long frameRate): BaseBroca(source, frameRate) {
+                     std::shared_ptr<exo::PacketRingBuffer> source,
+                     const exo::StreamFormat& streamFormat,
+                     unsigned long frameRate)
+    : BaseBroca(source, frameRate) {
     if (!cfg::isString(config) && !cfg::isObject(config))
         throw exo::InvalidConfigError("'file' broca needs a string or "
                                       "an object as config");
@@ -59,14 +61,19 @@ FileBroca::FileBroca(const exo::ConfigObject& config,
     file_.open(path, flags);
     if (file_.fail() || file_.bad())
         throw std::system_error(errno, std::generic_category(),
-                    "file broca error: " + path);
+                                "file broca error: " + path);
 }
 
 void FileBroca::runImpl() {
     exo::byte buffer[exo::BaseBroca::DEFAULT_BROCA_BUFFER];
     while (exo::shouldRun()) {
         auto packet = source_->readPacket();
-        if (!packet.has_value()) break;
+        if (!packet.has_value())
+            break;
+        if (packet->header.frameCount & PacketFlags::OutOfBandMetadata) {
+            packet->skipFull();
+            continue;
+        }
 
         while (packet->hasData() && EXO_LIKELY(exo::shouldRun())) {
             std::size_t n = packet->readSome(buffer, sizeof(buffer));
@@ -79,8 +86,7 @@ void FileBroca::runImpl() {
 
             file_.write(reinterpret_cast<const char*>(buffer), n);
             if (file_.bad()) {
-                auto error = std::system_error(errno,
-                            std::system_category());
+                auto error = std::system_error(errno, std::system_category());
                 EXO_LOG("failed to write to file: %s", error.what());
                 return;
             }

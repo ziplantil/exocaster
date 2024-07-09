@@ -51,76 +51,75 @@ static_assert(CHAR_BIT == 8);
     EXO_PCM_FORMATS_CASE(F32)
 
 enum class PcmSampleFormat {
-    // all formats use native endianness if multi-byte
+// all formats use native endianness if multi-byte
 #define EXO_PCM_FORMATS_CASE(T) T,
     EXO_PCM_FORMATS_SWITCH
 #undef EXO_PCM_FORMATS_CASE
 };
 
+template <typename T> struct WiderType {};
+
+template <> struct WiderType<std::int8_t> {
+    using type = std::int_fast16_t;
+};
+
+template <> struct WiderType<std::int16_t> {
+    using type = std::int_fast32_t;
+};
+
+template <> struct WiderType<std::int32_t> {
+    using type = std::int_fast64_t;
+};
+
+template <> struct WiderType<std::uint8_t> {
+    using type = std::int_fast16_t;
+};
+
+template <> struct WiderType<std::uint16_t> {
+    using type = std::int_fast32_t;
+};
+
+template <> struct WiderType<std::uint32_t> {
+    using type = std::int_fast64_t;
+};
+
 template <typename T>
-struct WiderType { };
+    requires(std::floating_point<T>)
+struct WiderType<T> {
+    using type = T;
+};
 
-template <>
-struct WiderType<std::int8_t> { using type = std::int_fast16_t; };
+template <typename T> using WiderType_t = WiderType<T>::type;
 
-template <>
-struct WiderType<std::int16_t> { using type = std::int_fast32_t; };
+template <exo::PcmSampleFormat fmt> struct PcmFormatDefs {};
 
-template <>
-struct WiderType<std::int32_t> { using type = std::int_fast64_t; };
-
-template <>
-struct WiderType<std::uint8_t> { using type = std::int_fast16_t; };
-
-template <>
-struct WiderType<std::uint16_t> { using type = std::int_fast32_t; };
-
-template <>
-struct WiderType<std::uint32_t> { using type = std::int_fast64_t; };
-
-template <typename T>
-requires (std::floating_point<T>)
-struct WiderType<T> { using type = T; };
-
-template <typename T>
-using WiderType_t = WiderType<T>::type;
-
-template <exo::PcmSampleFormat fmt>
-struct PcmFormatDefs { };
-
-template <std::integral T>
-struct PcmFormatDefsFixed_ {
+template <std::integral T> struct PcmFormatDefsFixed_ {
     using type = T;
     static constexpr type min = std::numeric_limits<type>::min();
     static constexpr type max = std::numeric_limits<type>::max();
 };
 
-template <std::floating_point T>
-struct PcmFormatDefsFloat_ {
+template <std::floating_point T> struct PcmFormatDefsFloat_ {
     using type = T;
     static constexpr type min = static_cast<type>(-1);
     static constexpr type max = static_cast<type>(+1);
 };
 
 template <>
-struct PcmFormatDefs<PcmSampleFormat::S8>:
-        public exo::PcmFormatDefsFixed_<std::int8_t> {
-};
+struct PcmFormatDefs<PcmSampleFormat::S8>
+    : public exo::PcmFormatDefsFixed_<std::int8_t> {};
 
 template <>
-struct PcmFormatDefs<PcmSampleFormat::U8>:
-        public exo::PcmFormatDefsFixed_<std::uint8_t> {
-};
+struct PcmFormatDefs<PcmSampleFormat::U8>
+    : public exo::PcmFormatDefsFixed_<std::uint8_t> {};
 
 template <>
-struct PcmFormatDefs<PcmSampleFormat::S16>:
-        public exo::PcmFormatDefsFixed_<std::int16_t> {
-};
+struct PcmFormatDefs<PcmSampleFormat::S16>
+    : public exo::PcmFormatDefsFixed_<std::int16_t> {};
 
 template <>
-struct PcmFormatDefs<PcmSampleFormat::F32>:
-        public exo::PcmFormatDefsFloat_<float> {
-};
+struct PcmFormatDefs<PcmSampleFormat::F32>
+    : public exo::PcmFormatDefsFloat_<float> {};
 
 template <exo::PcmSampleFormat fmt>
 using PcmFormat_t = typename PcmFormatDefs<fmt>::type;
@@ -130,34 +129,36 @@ inline constexpr std::size_t bytesPerSampleFormat(exo::PcmSampleFormat fmt) {
 #define EXO_PCM_FORMATS_CASE(F)                                                \
     case exo::PcmSampleFormat::F:                                              \
         return sizeof(exo::PcmFormat_t<exo::PcmSampleFormat::F>);
-    EXO_PCM_FORMATS_SWITCH
+        EXO_PCM_FORMATS_SWITCH
 #undef EXO_PCM_FORMATS_CASE
-        default: EXO_UNREACHABLE;
+    default:
+        EXO_UNREACHABLE;
     }
 }
 
 template <exo::PcmSampleFormat fmt>
 constexpr bool IsSampleSignedInt_v =
-        std::is_integral_v<exo::PcmFormat_t<fmt>> &&
-        std::is_signed_v<exo::PcmFormat_t<fmt>>;
+    std::is_integral_v<exo::PcmFormat_t<fmt>> &&
+    std::is_signed_v<exo::PcmFormat_t<fmt>>;
 
 template <exo::PcmSampleFormat fmt>
 constexpr bool IsSampleUnsignedInt_v =
-        std::is_integral_v<exo::PcmFormat_t<fmt>> &&
-        std::is_unsigned_v<exo::PcmFormat_t<fmt>>;
+    std::is_integral_v<exo::PcmFormat_t<fmt>> &&
+    std::is_unsigned_v<exo::PcmFormat_t<fmt>>;
 
 template <exo::PcmSampleFormat fmt>
 constexpr bool IsSampleFloatingPoint_v =
-        std::is_floating_point_v<exo::PcmFormat_t<fmt>>;
+    std::is_floating_point_v<exo::PcmFormat_t<fmt>>;
 
 inline constexpr bool areSamplesSignedInt(exo::PcmSampleFormat fmt) {
     switch (fmt) {
 #define EXO_PCM_FORMATS_CASE(F)                                                \
     case exo::PcmSampleFormat::F:                                              \
         return exo::IsSampleSignedInt_v<exo::PcmSampleFormat::F>;
-    EXO_PCM_FORMATS_SWITCH
+        EXO_PCM_FORMATS_SWITCH
 #undef EXO_PCM_FORMATS_CASE
-        default: EXO_UNREACHABLE;
+    default:
+        EXO_UNREACHABLE;
     }
 }
 
@@ -166,9 +167,10 @@ inline constexpr bool areSamplesUnsignedInt(exo::PcmSampleFormat fmt) {
 #define EXO_PCM_FORMATS_CASE(F)                                                \
     case exo::PcmSampleFormat::F:                                              \
         return exo::IsSampleUnsignedInt_v<exo::PcmSampleFormat::F>;
-    EXO_PCM_FORMATS_SWITCH
+        EXO_PCM_FORMATS_SWITCH
 #undef EXO_PCM_FORMATS_CASE
-        default: EXO_UNREACHABLE;
+    default:
+        EXO_UNREACHABLE;
     }
 }
 
@@ -177,17 +179,17 @@ inline constexpr bool areSamplesFloatingPoint(exo::PcmSampleFormat fmt) {
 #define EXO_PCM_FORMATS_CASE(F)                                                \
     case exo::PcmSampleFormat::F:                                              \
         return exo::IsSampleFloatingPoint_v<exo::PcmSampleFormat::F>;
-    EXO_PCM_FORMATS_SWITCH
+        EXO_PCM_FORMATS_SWITCH
 #undef EXO_PCM_FORMATS_CASE
-        default: EXO_UNREACHABLE;
+    default:
+        EXO_UNREACHABLE;
     }
 }
 
 #define EXO_PCM_FORMATS_CASE(F)                                                \
-        sizeof(exo::PcmFormat_t<exo::PcmSampleFormat::F>),
-inline constexpr std::size_t MAX_BYTES_PER_SAMPLE = std::max({
-    EXO_PCM_FORMATS_SWITCH
-});
+    sizeof(exo::PcmFormat_t<exo::PcmSampleFormat::F>),
+inline constexpr std::size_t MAX_BYTES_PER_SAMPLE =
+    std::max({EXO_PCM_FORMATS_SWITCH});
 #undef EXO_PCM_FORMATS_CASE
 
 #define EXO_PCM_CHANNELS_SWITCH                                                \
@@ -200,23 +202,19 @@ enum class PcmChannelLayout {
 #undef EXO_PCM_CHANNELS_CASE
 };
 
-template <exo::PcmChannelLayout C>
-struct PcmChannelDefs { };
+template <exo::PcmChannelLayout C> struct PcmChannelDefs {};
 
-template <>
-struct PcmChannelDefs<exo::PcmChannelLayout::Mono> {
+template <> struct PcmChannelDefs<exo::PcmChannelLayout::Mono> {
     static constexpr unsigned channels = 1;
 };
 
-template <>
-struct PcmChannelDefs<exo::PcmChannelLayout::Stereo> {
+template <> struct PcmChannelDefs<exo::PcmChannelLayout::Stereo> {
     static constexpr unsigned channels = 2;
 };
 
 inline constexpr std::size_t MAX_CHANNELS = 8;
 
-template <exo::PcmChannelLayout C>
-inline constexpr unsigned channelCount_() {
+template <exo::PcmChannelLayout C> inline constexpr unsigned channelCount_() {
     constexpr unsigned channels = exo::PcmChannelDefs<C>::channels;
     static_assert(channels <= MAX_CHANNELS);
     return channels;
@@ -227,14 +225,15 @@ inline constexpr unsigned channelCount(exo::PcmChannelLayout layout) {
 #define EXO_PCM_CHANNELS_CASE(C)                                               \
     case exo::PcmChannelLayout::C:                                             \
         return exo::channelCount_<exo::PcmChannelLayout::C>();
-    EXO_PCM_CHANNELS_SWITCH
+        EXO_PCM_CHANNELS_SWITCH
 #undef EXO_PCM_CHANNELS_CASE
-        default: EXO_UNREACHABLE;
+    default:
+        EXO_UNREACHABLE;
     }
 }
 
 inline constexpr std::size_t MAX_BYTES_PER_FRAME =
-                MAX_BYTES_PER_SAMPLE * MAX_CHANNELS;
+    MAX_BYTES_PER_SAMPLE * MAX_CHANNELS;
 
 struct PcmFormat {
     exo::PcmSampleFormat sample;
@@ -262,4 +261,3 @@ struct PcmFormat {
 } // namespace exo
 
 #endif /* PCMTYPES_HH */
-

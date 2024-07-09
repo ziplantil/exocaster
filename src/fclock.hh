@@ -29,15 +29,16 @@ DEALINGS IN THE SOFTWARE.
 #ifndef FCLOCK_HH
 #define FCLOCK_HH
 
+#include "log.hh"
 #include <chrono>
 #include <thread>
 #include <utility>
 
 namespace exo {
 
-template <typename T = std::chrono::steady_clock>
-class FrameClock {
+template <typename T = std::chrono::steady_clock> class FrameClock {
     using TimeUnit = std::uint_least64_t; // in nanoseconds
+    using FrameCounter = long long;
 
     // the last time
     TimeUnit lastTime_;
@@ -46,21 +47,22 @@ class FrameClock {
     // the time remaining for one frame
     TimeUnit frameRemainder_;
     // number of frames
-    unsigned long long frames_;
+    FrameCounter frames_;
 
     inline TimeUnit elapsed_() noexcept {
         auto newValue = std::chrono::duration_cast<
                             std::chrono::duration<TimeUnit, std::nano>>(
-                                T::now().time_since_epoch()).count();
+                            T::now().time_since_epoch())
+                            .count();
         auto oldValue = std::exchange(lastTime_, newValue);
         return newValue - oldValue;
     }
 
-public:
+  public:
     inline FrameClock(unsigned long frameRate) noexcept
-            : frameDuration_(TimeUnit(std::nano::den / frameRate)),
-              frameRemainder_(0), frames_(0) {
-        elapsed_();  // init clock
+        : frameDuration_(TimeUnit(std::nano::den / frameRate)),
+          frameRemainder_(0), frames_(0) {
+        elapsed_(); // init clock
     }
 
     inline void reset() {
@@ -73,26 +75,25 @@ public:
         auto elapsed = elapsed_() + frameRemainder_;
         auto elapsedFrames = elapsed / frameDuration_;
         frameRemainder_ = elapsed % frameDuration_;
-        frames_ = frames_ + static_cast<long long>(gotFrames) - elapsedFrames;
+        frames_ = frames_ + static_cast<FrameCounter>(gotFrames) -
+                  static_cast<FrameCounter>(elapsedFrames);
     }
 
     inline auto wouldSleepUntil(unsigned long gotFrames = 0) noexcept {
         auto until = T::now();
-        auto frames = frames_ + gotFrames;
+        auto frames = frames_ + static_cast<FrameCounter>(gotFrames);
         if (frames > 0)
             until += std::chrono::nanoseconds(frameDuration_ * frames);
         return until;
     }
 
     inline void sleepIf(std::size_t atLeastFrames) noexcept {
-        while (frames_ < atLeastFrames) {
+        while (frames_ >= static_cast<FrameCounter>(atLeastFrames)) {
             auto nanosToSleep = frameDuration_ * (frames_ - atLeastFrames / 2);
-            std::this_thread::sleep_for(
-                        std::chrono::nanoseconds(nanosToSleep));
+            std::this_thread::sleep_for(std::chrono::nanoseconds(nanosToSleep));
+            update(0);
         }
-        update(0);
     }
-
 };
 
 } // namespace exo

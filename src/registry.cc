@@ -26,59 +26,61 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
+#include "registry.hh"
 #include "broca/broca.hh"
 #include "encoder/encoder.hh"
-#include "registry.hh"
+#include "resampler/resampler.hh"
 #include "serverconfig.hh"
 
 namespace exo {
 
-std::shared_ptr<exo::PcmSplitter> createPcmBuffers(
-                const exo::PcmBufferConfig& config,
-                std::shared_ptr<exo::Publisher> publisher) {
+std::shared_ptr<exo::PcmSplitter>
+createPcmBuffers(const exo::PcmBufferConfig& config,
+                 std::shared_ptr<exo::Publisher> publisher) {
     return std::make_shared<exo::PcmSplitter>(config.pcmFormat(), config.size,
                                               publisher);
 }
 
 void registerCommands(
-            std::unordered_map<std::string,
-                    std::unique_ptr<exo::BaseDecoder>>& cmds,
-            const exo::CommandConfig& config,
-            const exo::PcmFormat& pcmFormat) {
-    for (const auto& pair: config.commands) {
-        cmds.insert_or_assign(pair.first,
-                exo::createDecoder(pair.second.type, pair.second.config,
-                        pcmFormat));
+    std::unordered_map<std::string, std::unique_ptr<exo::BaseDecoder>>& cmds,
+    const exo::CommandConfig& config, const exo::PcmFormat& pcmFormat) {
+    for (const auto& pair : config.commands) {
+        cmds.insert_or_assign(pair.first, exo::createDecoder(pair.second.type,
+                                                             pair.second.config,
+                                                             pcmFormat));
     }
 }
 
-void registerOutputs(
-            std::vector<std::unique_ptr<exo::BaseEncoder>>& encoders,
-            std::vector<std::unique_ptr<exo::BaseBroca>>& brocas,
-            exo::PcmSplitter& pcmSplitter,
-            const std::vector<exo::OutputConfig>& configs,
-            const exo::PcmBufferConfig& bufferConfig,
-            const exo::PcmFormat& pcmFormat) {
+void registerOutputs(std::vector<std::unique_ptr<exo::BaseEncoder>>& encoders,
+                     std::vector<std::unique_ptr<exo::BaseBroca>>& brocas,
+                     exo::PcmSplitter& pcmSplitter,
+                     const std::vector<exo::OutputConfig>& configs,
+                     const exo::PcmBufferConfig& bufferConfig,
+                     const exo::PcmFormat& pcmFormat,
+                     const exo::ResamplerConfig& resamplerConfig) {
     unsigned totalBrocas = 0;
-    for (const auto& encoderConfig: configs) {
+    exo::StandardResamplerFactory resamplerFactory(
+        resamplerConfig.type, resamplerConfig.config, pcmFormat);
+
+    for (const auto& encoderConfig : configs) {
         if (encoderConfig.broca.empty()) {
             pcmSplitter.skipIndex();
             continue;
         }
 
-        auto encoder = exo::createEncoder(encoderConfig.type,
-                                          encoderConfig.config,
-                                          pcmSplitter.addBuffer(bufferConfig),
-                                          pcmFormat);
+        auto encoder = exo::createEncoder(
+            encoderConfig.type, encoderConfig.config,
+            pcmSplitter.addBuffer(bufferConfig), pcmFormat, resamplerFactory);
         const auto& streamFormat = encoder->streamFormat();
 
-        for (const auto& brocaConfig: encoderConfig.broca) {
-            auto encodedBuffer = std::make_shared<exo::PacketRingBuffer>(
-                                        encoderConfig.buffer);
-            if (!encodedBuffer) throw std::bad_alloc();
-            auto broca = exo::createBroca(brocaConfig.type, brocaConfig.config,
-                                          encodedBuffer, streamFormat,
-                                          pcmFormat);
+        for (const auto& brocaConfig : encoderConfig.broca) {
+            auto encodedBuffer =
+                std::make_shared<exo::PacketRingBuffer>(encoderConfig.buffer);
+            if (!encodedBuffer)
+                throw std::bad_alloc();
+            auto broca =
+                exo::createBroca(brocaConfig.type, brocaConfig.config,
+                                 encodedBuffer, streamFormat, pcmFormat);
             encoder->addSink(encodedBuffer);
             brocas.push_back(std::move(broca));
             if (totalBrocas++ > exo::MAX_BROCAS)
@@ -89,15 +91,13 @@ void registerOutputs(
     }
 }
 
-std::unique_ptr<exo::BaseReadQueue> createReadQueue(
-                const exo::QueueConfig& queue,
-                const std::string& instanceId) {
+std::unique_ptr<exo::BaseReadQueue>
+createReadQueue(const exo::QueueConfig& queue, const std::string& instanceId) {
     return exo::createReadQueue(queue.type, queue.config, instanceId);
 }
 
-std::unique_ptr<exo::BaseWriteQueue> createWriteQueue(
-                const exo::QueueConfig& queue,
-                const std::string& instanceId) {
+std::unique_ptr<exo::BaseWriteQueue>
+createWriteQueue(const exo::QueueConfig& queue, const std::string& instanceId) {
     return exo::createWriteQueue(queue.type, queue.config, instanceId);
 }
 

@@ -40,7 +40,7 @@ DEALINGS IN THE SOFTWARE.
 namespace exo {
 
 class UnknownBrocaError : public std::logic_error {
-public:
+  public:
     using std::logic_error::logic_error;
 };
 
@@ -49,12 +49,12 @@ static constexpr unsigned MAX_BROCAS = 32767;
 extern std::counting_semaphore<exo::MAX_BROCAS> brocaCounter;
 
 class BaseBroca {
-protected:
+  protected:
     std::shared_ptr<exo::PacketRingBuffer> source_;
     unsigned long frameRate_;
     virtual void runImpl() = 0;
 
-public:
+  public:
     static constexpr std::size_t DEFAULT_BROCA_BUFFER = 4096;
 
     /*
@@ -65,18 +65,17 @@ public:
     */
     inline BaseBroca(std::shared_ptr<exo::PacketRingBuffer> source,
                      unsigned long frameRate)
-            : source_(source), frameRate_(frameRate) { }
+        : source_(source), frameRate_(frameRate) {}
     EXO_DEFAULT_NONCOPYABLE_VIRTUAL_DESTRUCTOR(BaseBroca)
 
     void run();
 };
 
-std::unique_ptr<exo::BaseBroca> createBroca(
-        const std::string& type,
-        const exo::ConfigObject& config,
-        std::shared_ptr<exo::PacketRingBuffer> source,
-        const exo::StreamFormat& streamFormat,
-        const exo::PcmFormat& pcmFormat);
+std::unique_ptr<exo::BaseBroca>
+createBroca(const std::string& type, const exo::ConfigObject& config,
+            std::shared_ptr<exo::PacketRingBuffer> source,
+            const exo::StreamFormat& streamFormat,
+            const exo::PcmFormat& pcmFormat);
 
 void printBrocaOptions(std::ostream& stream);
 

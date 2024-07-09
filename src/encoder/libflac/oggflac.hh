@@ -1,6 +1,6 @@
 /***
 exocaster -- audio streaming helper
-encoder/libflac/oggflac.hh -- OGG FLAC encoder using libFLAC
+encoder/libflac/oggflac.hh -- Ogg FLAC encoder using libFLAC
 
 MIT License
 
@@ -30,6 +30,8 @@ DEALINGS IN THE SOFTWARE.
 #define ENCODER_LIBFLAC_OGGFLAC_HH
 
 #include "encoder/encoder.hh"
+#include "slot.hh"
+#include "util.hh"
 
 extern "C" {
 #include <FLAC/stream_encoder.h>
@@ -37,9 +39,25 @@ extern "C" {
 
 namespace exo {
 
-class OggFlacEncoder: public exo::BaseEncoder {
-    FLAC__StreamEncoder* encoder_{nullptr};
-    FLAC__StreamMetadata* metadata_{nullptr};
+struct FlacStreamEncoder
+    : public PointerSlot<FlacStreamEncoder, FLAC__StreamEncoder> {
+    using PointerSlot::PointerSlot;
+    FlacStreamEncoder();
+    ~FlacStreamEncoder() noexcept;
+    EXO_DEFAULT_NONCOPYABLE(FlacStreamEncoder)
+};
+
+struct FlacStreamMetadata
+    : public PointerSlot<FlacStreamMetadata, FLAC__StreamMetadata> {
+    using PointerSlot::PointerSlot;
+    FlacStreamMetadata(FLAC__MetadataType type);
+    ~FlacStreamMetadata() noexcept;
+    EXO_DEFAULT_NONCOPYABLE(FlacStreamMetadata)
+};
+
+class OggFlacEncoder : public exo::BaseEncoder {
+    FlacStreamEncoder encoder_;
+    FlacStreamMetadata metadata_;
     std::uint32_t serial_;
     bool init_{false};
     unsigned channels_;
@@ -47,11 +65,11 @@ class OggFlacEncoder: public exo::BaseEncoder {
     std::vector<exo::byte> pcmBuffer_;
     unsigned level_;
 
-public:
+  public:
     OggFlacEncoder(const exo::ConfigObject& config,
                    std::shared_ptr<exo::PcmBuffer> source,
-                   exo::PcmFormat pcmFormat);
-    ~OggFlacEncoder() noexcept;
+                   exo::PcmFormat pcmFormat,
+                   const exo::ResamplerFactory& resamplerFactory);
 
     exo::StreamFormat streamFormat() const noexcept;
 
@@ -59,9 +77,10 @@ public:
     void pcmBlock(std::size_t frameCount, std::span<const exo::byte> data);
     void endTrack();
 
-    FLAC__StreamEncoderWriteStatus writeCallback(
-                    const FLAC__byte buffer[], std::size_t bytes,
-                    std::uint32_t samples, std::uint32_t currentFrame);
+    FLAC__StreamEncoderWriteStatus writeCallback(const FLAC__byte buffer[],
+                                                 std::size_t bytes,
+                                                 std::uint32_t samples,
+                                                 std::uint32_t currentFrame);
 };
 
 } // namespace exo

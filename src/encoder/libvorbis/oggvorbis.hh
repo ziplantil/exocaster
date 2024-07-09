@@ -1,6 +1,6 @@
 /***
 exocaster -- audio streaming helper
-encoder/libvorbis/oggvorbis.hh -- OGG Vorbis encoder using libvorbis
+encoder/libvorbis/oggvorbis.hh -- Ogg Vorbis encoder using libvorbis
 
 MIT License
 
@@ -30,6 +30,8 @@ DEALINGS IN THE SOFTWARE.
 #define ENCODER_LIBVORBIS_OGGVORBIS_HH
 
 #include "encoder/encoder.hh"
+#include "encoder/ogg/ogg.hh"
+#include "slot.hh"
 #include "util.hh"
 
 extern "C" {
@@ -38,45 +40,31 @@ extern "C" {
 
 namespace exo {
 
-template <typename T>
-struct VorbisStruct {
-    T value;
-
-    T* ptr() { return &value; }
-    const T* ptr() const { return &value; }
-};
-
-struct VorbisInfo: public VorbisStruct<vorbis_info> {
+struct VorbisInfo : public ValueSlot<VorbisInfo, vorbis_info> {
     VorbisInfo();
     ~VorbisInfo() noexcept;
     EXO_DEFAULT_NONMOVABLE(VorbisInfo)
 };
 
-struct VorbisDspState: public VorbisStruct<vorbis_dsp_state> {
+struct VorbisDspState : public ValueSlot<VorbisDspState, vorbis_dsp_state> {
     VorbisDspState(exo::VorbisInfo& info);
     ~VorbisDspState() noexcept;
     EXO_DEFAULT_NONMOVABLE(VorbisDspState)
 };
 
-struct VorbisBlock: public VorbisStruct<vorbis_block> {
+struct VorbisBlock : public ValueSlot<VorbisBlock, vorbis_block> {
     VorbisBlock(exo::VorbisDspState& dspState);
     ~VorbisBlock() noexcept;
     EXO_DEFAULT_NONMOVABLE(VorbisBlock)
 };
 
-struct VorbisComment: public VorbisStruct<vorbis_comment> {
+struct VorbisComment : public ValueSlot<VorbisComment, vorbis_comment> {
     VorbisComment();
     ~VorbisComment() noexcept;
     EXO_DEFAULT_NONMOVABLE(VorbisComment)
 };
 
-struct OggStreamState: public VorbisStruct<ogg_stream_state> {
-    OggStreamState(int serial);
-    ~OggStreamState() noexcept;
-    EXO_DEFAULT_NONMOVABLE(OggStreamState)
-};
-
-class OggVorbisEncoder: public exo::BaseEncoder {
+class OggVorbisEncoder : public exo::BaseEncoder {
     std::unique_ptr<exo::VorbisInfo> info_;
     std::unique_ptr<exo::VorbisDspState> dspState_;
     std::unique_ptr<exo::VorbisBlock> block_;
@@ -94,10 +82,11 @@ class OggVorbisEncoder: public exo::BaseEncoder {
     void flushBuffers_();
     void flushPages_();
 
-public:
+  public:
     OggVorbisEncoder(const exo::ConfigObject& config,
                      std::shared_ptr<exo::PcmBuffer> source,
-                     exo::PcmFormat pcmFormat);
+                     exo::PcmFormat pcmFormat,
+                     const exo::ResamplerFactory& resamplerFactory);
 
     exo::StreamFormat streamFormat() const noexcept;
 

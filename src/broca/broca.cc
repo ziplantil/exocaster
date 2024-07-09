@@ -36,16 +36,14 @@ DEALINGS IN THE SOFTWARE.
 
 #if EXO_PORTAUDIO
 #include "broca/portaudio/playback.hh"
-#define BROCA_DEFS_PORTAUDIO                                                   \
-    BROCA_DEF(portaudio, exo::PortAudioBroca)
+#define BROCA_DEFS_PORTAUDIO BROCA_DEF(portaudio, exo::PortAudioBroca)
 #else
 #define BROCA_DEFS_PORTAUDIO
 #endif
 
 #if EXO_SHOUT
 #include "broca/shout/shout.hh"
-#define BROCA_DEFS_SHOUT                                                       \
-    BROCA_DEF(shout, exo::ShoutBroca)
+#define BROCA_DEFS_SHOUT BROCA_DEF(shout, exo::ShoutBroca)
 #else
 #define BROCA_DEFS_SHOUT
 #endif
@@ -65,14 +63,13 @@ enum class BrocaImpl {
 };
 
 static std::unordered_map<std::string, exo::BrocaImpl> brocas = {
-#define BROCA_DEF(N, T) { #N, exo::BrocaImpl::N },
+#define BROCA_DEF(N, T) {#N, exo::BrocaImpl::N},
     BROCA_DEFS
 #undef BROCA_DEF
 };
 
-std::unique_ptr<exo::BaseBroca> createBroca(
-            const std::string& type,
-            const exo::ConfigObject& config,
+std::unique_ptr<exo::BaseBroca>
+createBroca(const std::string& type, const exo::ConfigObject& config,
             std::shared_ptr<exo::PacketRingBuffer> source,
             const exo::StreamFormat& streamFormat,
             const exo::PcmFormat& pcmFormat) {
@@ -81,10 +78,10 @@ std::unique_ptr<exo::BaseBroca> createBroca(
     if (it != brocas.end()) {
         switch (it->second) {
 #define BROCA_DEF(N, T)                                                        \
-        case exo::BrocaImpl::N:                                                \
-            return std::make_unique<T>(config, source, streamFormat,           \
-                                       pcmFormat.rate);
-        BROCA_DEFS
+    case exo::BrocaImpl::N:                                                    \
+        return std::make_unique<T>(config, source, streamFormat,               \
+                                   pcmFormat.rate);
+            BROCA_DEFS
 #undef BROCA_DEF
         }
     }
@@ -93,9 +90,7 @@ std::unique_ptr<exo::BaseBroca> createBroca(
 }
 
 struct BrocaWatchdog {
-    ~BrocaWatchdog() {
-        exo::brocaCounter.release();
-    }
+    ~BrocaWatchdog() { exo::brocaCounter.release(); }
 };
 
 void BaseBroca::run() {
@@ -105,11 +100,11 @@ void BaseBroca::run() {
 
 void printBrocaOptions(std::ostream& stream) {
     std::vector<std::string> options;
-    for (const auto& [key, _]: brocas)
+    for (const auto& [key, _] : brocas)
         options.push_back(key);
 
     std::sort(options.begin(), options.end());
-    for (const auto& key: options)
+    for (const auto& key : options)
         std::cout << " " << key;
 }
 

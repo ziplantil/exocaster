@@ -38,30 +38,26 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
-std::shared_ptr<exo::PcmSplitter> createPcmBuffers(
-                const exo::PcmBufferConfig& config,
-                std::shared_ptr<exo::Publisher> publisher);
+std::shared_ptr<exo::PcmSplitter>
+createPcmBuffers(const exo::PcmBufferConfig& config,
+                 std::shared_ptr<exo::Publisher> publisher);
 
 void registerCommands(
-            std::unordered_map<std::string,
-                    std::unique_ptr<exo::BaseDecoder>>& cmds,
-            const exo::CommandConfig& config,
-            const exo::PcmFormat& pcmFormat);
+    std::unordered_map<std::string, std::unique_ptr<exo::BaseDecoder>>& cmds,
+    const exo::CommandConfig& config, const exo::PcmFormat& pcmFormat);
 
-void registerOutputs(
-            std::vector<std::unique_ptr<exo::BaseEncoder>>& encoders,
-            std::vector<std::unique_ptr<exo::BaseBroca>>& brocas,
-            exo::PcmSplitter& pcmSplitter,
-            const std::vector<exo::OutputConfig>& configs,
-            const exo::PcmBufferConfig& bufferConfig,
-            const exo::PcmFormat& pcmFormat);
+void registerOutputs(std::vector<std::unique_ptr<exo::BaseEncoder>>& encoders,
+                     std::vector<std::unique_ptr<exo::BaseBroca>>& brocas,
+                     exo::PcmSplitter& pcmSplitter,
+                     const std::vector<exo::OutputConfig>& configs,
+                     const exo::PcmBufferConfig& bufferConfig,
+                     const exo::PcmFormat& pcmFormat,
+                     const exo::ResamplerConfig& resamplerConfig);
 
-std::unique_ptr<exo::BaseReadQueue> createReadQueue(
-                const exo::QueueConfig& queue,
-                const std::string& instanceId);
-std::unique_ptr<exo::BaseWriteQueue> createWriteQueue(
-                const exo::QueueConfig& queue,
-                const std::string& instanceId);
+std::unique_ptr<exo::BaseReadQueue>
+createReadQueue(const exo::QueueConfig& queue, const std::string& instanceId);
+std::unique_ptr<exo::BaseWriteQueue>
+createWriteQueue(const exo::QueueConfig& queue, const std::string& instanceId);
 
 } // namespace exo
 

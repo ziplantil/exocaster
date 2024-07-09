@@ -33,30 +33,29 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
-class SilenceDecodeJob: public exo::BaseDecodeJob {
-protected:
+class SilenceDecodeJob : public exo::BaseDecodeJob {
+  protected:
     std::size_t frames_;
 
-public:
+  public:
     inline SilenceDecodeJob(std::shared_ptr<exo::PcmSplitter> sink,
                             exo::PcmFormat pcmFormat,
                             std::shared_ptr<exo::ConfigObject> command,
                             std::size_t frames)
-        : BaseDecodeJob(sink, pcmFormat, command),
-          frames_(frames) { }
+        : BaseDecodeJob(sink, pcmFormat, command), frames_(frames) {}
 
     void run(std::shared_ptr<exo::PcmSplitter> sink);
 };
 
-class SilenceDecoder: public exo::BaseDecoder {
-public:
+class SilenceDecoder : public exo::BaseDecoder {
+  public:
     inline SilenceDecoder(const exo::ConfigObject& config,
                           exo::PcmFormat pcmFormat)
-        : BaseDecoder(pcmFormat) { }
+        : BaseDecoder(pcmFormat) {}
 
-    std::optional<std::unique_ptr<BaseDecodeJob>> createJob(
-            const exo::ConfigObject& request,
-            std::shared_ptr<exo::ConfigObject> command);
+    std::optional<std::unique_ptr<BaseDecodeJob>>
+    createJob(const exo::ConfigObject& request,
+              std::shared_ptr<exo::ConfigObject> command);
 };
 
 } // namespace exo

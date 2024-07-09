@@ -35,10 +35,10 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
-class FileReadQueue: public BaseReadQueue {
+class FileReadQueue : public BaseReadQueue {
     std::ifstream file_;
 
-public:
+  public:
     FileReadQueue(const exo::ConfigObject& config,
                   const std::string& instanceId);
 
@@ -46,10 +46,10 @@ public:
     void close();
 };
 
-class FileWriteQueue: public BaseWriteQueue {
+class FileWriteQueue : public BaseWriteQueue {
     std::ofstream file_;
 
-public:
+  public:
     FileWriteQueue(const exo::ConfigObject& config,
                    const std::string& instanceId);
 

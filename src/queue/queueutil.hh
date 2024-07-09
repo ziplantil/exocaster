@@ -39,15 +39,15 @@ class LineInputStreamBuf_ : public std::streambuf {
     char tmp_[256];
     bool eof_{false};
 
-public:
-    LineInputStreamBuf_(std::istream& stream) : stream_(stream) { }
+  public:
+    LineInputStreamBuf_(std::istream& stream) : stream_(stream) {}
 
     int underflow() {
         if (!eof_ && this->gptr() == this->egptr()) {
             std::size_t size;
             auto exceptions = stream_.exceptions();
-            auto intendedExceptions = (exceptions | std::ios::badbit)
-                        & ~(std::ios::failbit | std::ios::eofbit);
+            auto intendedExceptions = (exceptions | std::ios::badbit) &
+                                      ~(std::ios::failbit | std::ios::eofbit);
 
             if (exceptions != intendedExceptions)
                 stream_.exceptions(intendedExceptions);
@@ -56,7 +56,7 @@ public:
             if (stream_.eof())
                 size = std::strlen(tmp_); // reached eof
             else if (stream_.fail()) {
-                size = sizeof(tmp_) - 1;    // line still continues
+                size = sizeof(tmp_) - 1; // line still continues
                 stream_.clear();
             } else {
                 const char* eol = std::strchr(tmp_, '\n');
@@ -72,24 +72,22 @@ public:
             this->setg(this->tmp_, this->tmp_, this->tmp_ + size);
         }
         return this->gptr() == this->egptr()
-             ? std::char_traits<char>::eof()
-             : std::char_traits<char>::to_int_type(*this->gptr());
+                   ? std::char_traits<char>::eof()
+                   : std::char_traits<char>::to_int_type(*this->gptr());
     }
 };
 
 class LineInputStreamWithBuf_ {
-protected:
+  protected:
     exo::LineInputStreamBuf_ buf_;
-    LineInputStreamWithBuf_(std::istream& buf): buf_(buf) {}
+    LineInputStreamWithBuf_(std::istream& buf) : buf_(buf) {}
 };
 
-class LineInputStream : virtual LineInputStreamWithBuf_,
-                        public std::istream {
-public:
+class LineInputStream : virtual LineInputStreamWithBuf_, public std::istream {
+  public:
     LineInputStream(std::istream& input)
-        : LineInputStreamWithBuf_(input)
-        , std::ios(&this->buf_)
-        , std::istream(&this->buf_) {}
+        : LineInputStreamWithBuf_(input), std::ios(&this->buf_),
+          std::istream(&this->buf_) {}
 };
 
 } // namespace exo

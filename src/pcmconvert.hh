@@ -31,9 +31,9 @@ DEALINGS IN THE SOFTWARE.
 
 #include <algorithm>
 #include <cmath>
-#include <limits>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <type_traits>
 
 #include "pcmtypes.hh"
@@ -43,8 +43,7 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
-template <typename TOut, typename TIn>
-TOut clampInt_(TIn v) {
+template <typename TOut, typename TIn> TOut clampInt_(TIn v) {
     if (v < std::numeric_limits<TOut>::min())
         v = std::numeric_limits<TOut>::min();
     if (v > std::numeric_limits<TOut>::max())
@@ -61,7 +60,7 @@ TInt floatToInt_(TFloat x) {
 }
 
 template <exo::PcmSampleFormat fmt>
-requires (exo::IsSampleUnsignedInt_v<fmt> || exo::IsSampleSignedInt_v<fmt>)
+    requires(exo::IsSampleUnsignedInt_v<fmt> || exo::IsSampleSignedInt_v<fmt>)
 constexpr exo::WiderType_t<exo::PcmFormat_t<fmt>> getSampleFormatBias_() {
     using W = exo::WiderType_t<exo::PcmFormat_t<fmt>>;
     constexpr auto min = static_cast<W>(exo::PcmFormatDefs<fmt>::min);
@@ -83,8 +82,8 @@ inline exo::PcmFormat_t<fmt> convertSampleFromFloat_(const F& x,
 
         constexpr auto bias = exo::getSampleFormatBias_<fmt>();
         constexpr auto scale = std::max(max - bias, bias - min);
-        return exo::clampInt_<T>(exo::floatToInt_<round, W>(
-                    x * scale + bias + noise));
+        return exo::clampInt_<T>(
+            exo::floatToInt_<round, W>(x * scale + bias + noise));
 
     } else {
         using W = exo::WiderType_t<T>;
@@ -92,13 +91,11 @@ inline exo::PcmFormat_t<fmt> convertSampleFromFloat_(const F& x,
         constexpr auto max = static_cast<W>(exo::PcmFormatDefs<fmt>::max);
         constexpr auto scale = std::max(-min, max);
 
-        return exo::clampInt_<T>(exo::floatToInt_<round, W>(
-                    x * scale + noise));
+        return exo::clampInt_<T>(exo::floatToInt_<round, W>(x * scale + noise));
     }
 }
 
-template <typename T>
-exo::byte* outputSample_(exo::byte* ptr, T value) {
+template <typename T> exo::byte* outputSample_(exo::byte* ptr, T value) {
     exo::unalignedStore<T>(ptr, value);
     return ptr + sizeof(T);
 }
@@ -109,12 +106,13 @@ inline exo::byte* outputSample(exo::byte* ptr, exo::PcmSampleFormat fmt, F d) {
     switch (fmt) {
 #define EXO_PCM_FORMATS_CASE(F)                                                \
     case exo::PcmSampleFormat::F:                                              \
-        return exo::outputSample_(ptr,                                         \
-                   exo::convertSampleFromFloat_<exo::PcmSampleFormat::F,       \
-                            round>(d));
-    EXO_PCM_FORMATS_SWITCH
+        return exo::outputSample_(                                             \
+            ptr,                                                               \
+            exo::convertSampleFromFloat_<exo::PcmSampleFormat::F, round>(d));
+        EXO_PCM_FORMATS_SWITCH
 #undef EXO_PCM_FORMATS_CASE
-        default: EXO_UNREACHABLE;
+    default:
+        EXO_UNREACHABLE;
     }
 }
 
@@ -131,8 +129,8 @@ inline F convertSampleToFloat(const exo::PcmFormat_t<fmt>& x) {
         static_assert(min == 0);
 
         constexpr auto bias = exo::getSampleFormatBias_<fmt>();
-        constexpr auto scale = F{1.0} / static_cast<F>(
-                                std::max(max - bias, bias - min));
+        constexpr auto scale =
+            F{1.0} / static_cast<F>(std::max(max - bias, bias - min));
         y = (x - bias) * scale;
 
     } else {
@@ -147,74 +145,65 @@ inline F convertSampleToFloat(const exo::PcmFormat_t<fmt>& x) {
 }
 
 template <typename TA, typename TB>
-requires (std::is_integral_v<TA> && std::is_integral_v<TB>
-         && std::is_signed_v<TA> == std::is_signed_v<TB>)
+    requires(std::is_integral_v<TA> && std::is_integral_v<TB> &&
+             std::is_signed_v<TA> == std::is_signed_v<TB>)
 // true if TA fits in TB, otherwise false
 struct FitsIn {
     static constexpr bool value =
-            std::numeric_limits<TB>::min() <= std::numeric_limits<TA>::min()
-         && std::numeric_limits<TA>::max() <= std::numeric_limits<TB>::max();
+        std::numeric_limits<TB>::min() <= std::numeric_limits<TA>::min() &&
+        std::numeric_limits<TA>::max() <= std::numeric_limits<TB>::max();
 };
 
 template <typename TA, typename TB>
-requires (std::is_integral_v<TA> && std::is_integral_v<TB>
-         && std::is_signed_v<TA> == std::is_signed_v<TB>)
+    requires(std::is_integral_v<TA> && std::is_integral_v<TB> &&
+             std::is_signed_v<TA> == std::is_signed_v<TB>)
 // wider of the two integer types TA and TB
 struct Wider {
-    using type = std::conditional_t<exo::FitsIn<TA, TB>::value &&
-                                   !exo::FitsIn<TB, TA>::value, TB, TA>;
+    using type = std::conditional_t<
+        exo::FitsIn<TA, TB>::value && !exo::FitsIn<TB, TA>::value, TB, TA>;
 };
 
-template <typename TA, typename TB>
-using Wider_t = exo::Wider<TA, TB>::type;
+template <typename TA, typename TB> using Wider_t = exo::Wider<TA, TB>::type;
 
 template <std::uintmax_t newMax, std::uintmax_t oldMax>
 struct ScaleUnsignedSample_ {
     using W = std::uintmax_t;
     static_assert(oldMax + 1 != 0);
     static_assert((oldMax + 1) * (oldMax + 1) > oldMax);
-    inline W operator()(W x) {
-        return (x * (oldMax + 1)) / (newMax + 1);
-    }
+    inline W operator()(W x) { return (x * (oldMax + 1)) / (newMax + 1); }
 };
 
-template <>
-struct ScaleUnsignedSample_<UINT8_MAX, UINT16_MAX> {
+template <> struct ScaleUnsignedSample_<UINT8_MAX, UINT16_MAX> {
     inline auto operator()(std::uintmax_t x) { return x >> 8; }
 };
 
-template <>
-struct ScaleUnsignedSample_<UINT16_MAX, UINT8_MAX> {
+template <> struct ScaleUnsignedSample_<UINT16_MAX, UINT8_MAX> {
     inline auto operator()(std::uintmax_t x) { return (x << 8) | x; }
 };
 
-template <>
-struct ScaleUnsignedSample_<UINT16_MAX, UINT32_MAX> {
+template <> struct ScaleUnsignedSample_<UINT16_MAX, UINT32_MAX> {
     inline auto operator()(std::uintmax_t x) { return x >> 16; }
 };
 
-template <>
-struct ScaleUnsignedSample_<UINT32_MAX, UINT16_MAX> {
+template <> struct ScaleUnsignedSample_<UINT32_MAX, UINT16_MAX> {
     inline auto operator()(std::uintmax_t x) { return (x << 16) | x; }
 };
 
-template <>
-struct ScaleUnsignedSample_<INT8_MAX, UINT32_MAX> {
+template <> struct ScaleUnsignedSample_<INT8_MAX, UINT32_MAX> {
     inline auto operator()(std::uintmax_t x) { return x >> 24; }
 };
 
-template <>
-struct ScaleUnsignedSample_<UINT32_MAX, UINT8_MAX> {
+template <> struct ScaleUnsignedSample_<UINT32_MAX, UINT8_MAX> {
     inline auto operator()(std::uintmax_t x) {
         return (x << 24) | (x << 16) | (x << 8) | x;
     }
 };
 
 template <exo::PcmSampleFormat fdst, exo::PcmSampleFormat fsrc>
-requires ((exo::IsSampleSignedInt_v<fdst> || exo::IsSampleUnsignedInt_v<fdst>)
-       && (exo::IsSampleSignedInt_v<fsrc> || exo::IsSampleUnsignedInt_v<fsrc>))
-inline exo::PcmFormat_t<fdst> convertSampleIntToInt_(
-                            exo::PcmFormat_t<fsrc> x) {
+    requires(
+        (exo::IsSampleSignedInt_v<fdst> || exo::IsSampleUnsignedInt_v<fdst>) &&
+        (exo::IsSampleSignedInt_v<fsrc> || exo::IsSampleUnsignedInt_v<fsrc>))
+inline exo::PcmFormat_t<fdst> convertSampleIntToInt_(exo::PcmFormat_t<fsrc> x) {
     using Tdst = exo::PcmFormat_t<fdst>;
     using Tsrc = exo::PcmFormat_t<fsrc>;
     using S = exo::Wider_t<exo::WiderType_t<Tdst>, exo::WiderType_t<Tsrc>>;
@@ -229,12 +218,12 @@ inline exo::PcmFormat_t<fdst> convertSampleIntToInt_(
         u1 = static_cast<U>(x);
     }
 
-    constexpr U newMax = static_cast<U>(
-                  static_cast<S>(exo::PcmFormatDefs<fdst>::max)
-                - static_cast<S>(exo::PcmFormatDefs<fdst>::min));
-    constexpr U oldMax = static_cast<U>(
-                  static_cast<S>(exo::PcmFormatDefs<fsrc>::max)
-                - static_cast<S>(exo::PcmFormatDefs<fsrc>::min));
+    constexpr U newMax =
+        static_cast<U>(static_cast<S>(exo::PcmFormatDefs<fdst>::max) -
+                       static_cast<S>(exo::PcmFormatDefs<fdst>::min));
+    constexpr U oldMax =
+        static_cast<U>(static_cast<S>(exo::PcmFormatDefs<fsrc>::max) -
+                       static_cast<S>(exo::PcmFormatDefs<fsrc>::min));
     struct exo::ScaleUnsignedSample_<newMax, oldMax> conv;
     U u2 = static_cast<U>(conv(u1));
 
@@ -250,4 +239,3 @@ inline exo::PcmFormat_t<fdst> convertSampleIntToInt_(
 } // namespace exo
 
 #endif /* PCMCONVERT_HH */
-
