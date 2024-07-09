@@ -32,7 +32,7 @@ DEALINGS IN THE SOFTWARE.
 #include "decoder/decoder.hh"
 #include "slot.hh"
 
-#define USE_LIBAVFILTER 0
+#define USE_LIBAVFILTER 1
 
 extern "C" {
 #include <libavcodec/avcodec.h>

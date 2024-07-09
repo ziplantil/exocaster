@@ -555,8 +555,9 @@ bool LavcDecodeJob::setupFilter_() {
 #if EXO_LAVC_DEBUG
         EXO_LOG("avfilter_graph_parse_ptr    %s", filterDesc.c_str());
 #endif
-        if ((ret = avfilter_graph_parse_ptr(filterGraph, filterDesc.c_str(),
-                                            &inputs, &outputs, nullptr)) < 0) {
+        if ((ret = avfilter_graph_parse_ptr(
+                 filterGraph, filterDesc.c_str(), &inputsSlot.modify(),
+                 &outputsSlot.modify(), nullptr)) < 0) {
             EXO_LAVC_ERROR("avfilter_graph_parse_ptr", ret);
             return false;
         }
