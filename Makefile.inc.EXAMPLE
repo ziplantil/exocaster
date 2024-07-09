@@ -4,7 +4,7 @@
 # _LDLIBS are passed to the linker
 
 # 0 to build a debug build, 1 to build a release build
-RELEASE=0
+RELEASE ?= 0
 
 # Any additional flags to pass to the compiler and linker.
 CUSTOM_CXXFLAGS=

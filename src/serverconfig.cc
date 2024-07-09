@@ -195,7 +195,7 @@ exo::ServerConfig ServerConfig::read(const exo::ConfigObject& c) {
 
     return exo::ServerConfig{
         .shell = exo::QueueConfig::read(cfg::key(c, "shell")),
-        .publish = cfg::hasObject(c, "publish")
+        .publish = cfg::hasArray(c, "publish")
                        ? exo::readPublish(cfg::key(c, "publish"))
                        : exo::readPublish(cfg::empty()),
         .commands = exo::CommandConfig::read(cfg::key(c, "commands")),

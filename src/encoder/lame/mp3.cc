@@ -138,6 +138,11 @@ void Mp3Encoder::startTrack(const exo::Metadata& metadata) {
         return;
     }
 
+    if ((err = lame_set_bWriteVbrTag(lame, 0)) < 0) {
+        EXO_LAME_ERROR("lame_set_quality", err);
+        return;
+    }
+
     if ((err = lame_init_params(lame)) < 0) {
         EXO_LAME_ERROR("lame_init_params", err);
         return;
