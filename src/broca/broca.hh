@@ -74,8 +74,7 @@ class BaseBroca {
 std::unique_ptr<exo::BaseBroca>
 createBroca(const std::string& type, const exo::ConfigObject& config,
             std::shared_ptr<exo::PacketRingBuffer> source,
-            const exo::StreamFormat& streamFormat,
-            const exo::PcmFormat& pcmFormat);
+            const exo::StreamFormat& streamFormat, std::size_t frameRate);
 
 void printBrocaOptions(std::ostream& stream);
 

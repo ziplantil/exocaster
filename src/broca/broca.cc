@@ -71,16 +71,14 @@ static std::unordered_map<std::string, exo::BrocaImpl> brocas = {
 std::unique_ptr<exo::BaseBroca>
 createBroca(const std::string& type, const exo::ConfigObject& config,
             std::shared_ptr<exo::PacketRingBuffer> source,
-            const exo::StreamFormat& streamFormat,
-            const exo::PcmFormat& pcmFormat) {
+            const exo::StreamFormat& streamFormat, std::size_t frameRate) {
     auto it = brocas.find(type);
 
     if (it != brocas.end()) {
         switch (it->second) {
 #define BROCA_DEF(N, T)                                                        \
     case exo::BrocaImpl::N:                                                    \
-        return std::make_unique<T>(config, source, streamFormat,               \
-                                   pcmFormat.rate);
+        return std::make_unique<T>(config, source, streamFormat, frameRate);
             BROCA_DEFS
 #undef BROCA_DEF
         }

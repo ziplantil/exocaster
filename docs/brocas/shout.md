@@ -25,6 +25,10 @@ A JSON object with the following fields:
 * `url` (optional): The stream URL, as a string. Stream metadata.
 * `selfsync` (optional): A boolean value. If `true`, Exocaster uses its own
   sync, rather than relying on that provided by libshout. (Default: `false`)
+* `selfsyncthreshold` (optional): A numeric value. The number of seconds in
+  flight after which to sleep before sending more. If the output stream is
+  skipping, try decreasing this value; if it is cutting out, try increasing
+  this value. (Default: `0.05`)
 
 ## Notes
 

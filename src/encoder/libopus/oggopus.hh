@@ -87,6 +87,7 @@ class OggOpusEncoder : public exo::BaseEncoder {
                    const exo::ResamplerFactory& resamplerFactory);
 
     exo::StreamFormat streamFormat() const noexcept;
+    std::size_t outputFrameRate() const noexcept;
 
     void startTrack(const exo::Metadata& metadata);
     void pcmBlock(std::size_t frameCount, std::span<const exo::byte> data);

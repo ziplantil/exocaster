@@ -73,6 +73,10 @@ class BaseEncoder {
     /** Returns the format that this encoder encodes into. */
     virtual exo::StreamFormat streamFormat() const noexcept = 0;
 
+    /** If this encoder changes the frame rate, returns the
+        changed frame rate. Returns 0 if not changed. */
+    inline virtual std::size_t outputFrameRate() const noexcept { return 0; }
+
     /** Marks the start of a track, with metadata. */
     virtual void startTrack(const exo::Metadata& metadata) = 0;
 

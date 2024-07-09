@@ -125,6 +125,10 @@ exo::StreamFormat exo::OggOpusEncoder::streamFormat() const noexcept {
     return exo::EncodedStreamFormat{exo::EncodedStreamFormatCodec::OGG_OPUS};
 }
 
+std::size_t exo::OggOpusEncoder::outputFrameRate() const noexcept {
+    return rate_;
+}
+
 static void opusError_(const char* file, std::size_t lineno, const char* fn,
                        int ret) {
     exo::log(file, lineno, "%s failed (%d): %s", fn, ret, opus_strerror(ret));

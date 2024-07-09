@@ -72,6 +72,9 @@ void registerOutputs(std::vector<std::unique_ptr<exo::BaseEncoder>>& encoders,
             encoderConfig.type, encoderConfig.config,
             pcmSplitter.addBuffer(bufferConfig), pcmFormat, resamplerFactory);
         const auto& streamFormat = encoder->streamFormat();
+        auto frameRate = encoder->outputFrameRate();
+        if (!frameRate)
+            frameRate = pcmFormat.rate;
 
         for (const auto& brocaConfig : encoderConfig.broca) {
             auto encodedBuffer =
@@ -80,7 +83,7 @@ void registerOutputs(std::vector<std::unique_ptr<exo::BaseEncoder>>& encoders,
                 throw std::bad_alloc();
             auto broca =
                 exo::createBroca(brocaConfig.type, brocaConfig.config,
-                                 encodedBuffer, streamFormat, pcmFormat);
+                                 encodedBuffer, streamFormat, frameRate);
             encoder->addSink(encodedBuffer);
             brocas.push_back(std::move(broca));
             if (totalBrocas++ > exo::MAX_BROCAS)

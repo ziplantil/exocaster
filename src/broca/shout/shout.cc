@@ -80,8 +80,7 @@ exo::ShoutBroca::ShoutBroca(const exo::ConfigObject& config,
                             std::shared_ptr<exo::PacketRingBuffer> source,
                             const exo::StreamFormat& streamFormat,
                             unsigned long frameRate)
-    : BaseBroca(source, frameRate), syncClock_(frameRate),
-      syncThreshold_(frameRate / 20) {
+    : BaseBroca(source, frameRate), syncClock_(frameRate) {
     if (!cfg::isObject(config))
         throw std::runtime_error("shout broca needs a config object");
 
@@ -162,7 +161,9 @@ exo::ShoutBroca::ShoutBroca(const exo::ConfigObject& config,
     shoutCopyMetadata(shout, SHOUT_META_DESCRIPTION, config, "description");
     shoutCopyMetadata(shout, SHOUT_META_URL, config, "url");
 
+    double waitThresh = cfg::namedFloat(config, "selfsyncthreshold", 0.05);
     selfSync_ = cfg::namedBoolean(config, "selfsync", false);
+    syncThreshold_ = static_cast<std::size_t>(waitThresh * frameRate);
 }
 
 static bool shoutTrySend(shout_t* shout, const exo::byte* buffer, std::size_t n,
