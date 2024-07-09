@@ -45,15 +45,16 @@ DiscardBroca::DiscardBroca(const exo::ConfigObject& config,
 }
 
 void DiscardBroca::runImpl() {
-    exo::byte buffer[exo::BaseBroca::DEFAULT_BROCA_BUFFER];
     frameClock_.reset();
     while (exo::shouldRun()) {
         auto packet = source_->readPacket();
         if (!packet.has_value())
             break;
 
+        bool wait =
+            wait_ && !(packet->header.flags & PacketFlags::OutOfBandMetadata);
         if (log_) {
-            if (wait_)
+            if (wait)
                 EXO_LOG("discarding %zu bytes (%zu frames, "
                         "waiting approx %4.4f seconds)",
                         packet->header.dataSize, packet->header.frameCount,
@@ -63,17 +64,12 @@ void DiscardBroca::runImpl() {
                 EXO_LOG("discarding %zu bytes (%zu frames)",
                         packet->header.dataSize, packet->header.frameCount);
         }
-        while (packet->hasData() && EXO_LIKELY(exo::shouldRun())) {
-            std::size_t n = packet->readSome(buffer, sizeof(buffer));
-            if (!n) {
-                if (source_->closed())
-                    break;
-                else
-                    continue;
-            }
-        }
 
-        if (wait_) {
+        packet->skipFull();
+        if (source_->closed())
+            return;
+
+        if (wait) {
             frameClock_.update(packet->header.frameCount);
             frameClock_.sleepIf(10);
         }

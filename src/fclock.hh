@@ -65,12 +65,15 @@ template <typename T = std::chrono::steady_clock> class FrameClock {
         elapsed_(); // init clock
     }
 
+    /** Resets the frame clock back to zero frames. */
     inline void reset() {
         frameRemainder_ = 0;
         frames_ = 0;
         elapsed_();
     }
 
+    /** Updates the frame clock and increases the frame counter
+        by the specified number of frames. */
     inline void update(unsigned long gotFrames = 0) noexcept {
         auto elapsed = elapsed_() + frameRemainder_;
         auto elapsedFrames = elapsed / frameDuration_;
@@ -79,6 +82,9 @@ template <typename T = std::chrono::steady_clock> class FrameClock {
                   static_cast<FrameCounter>(elapsedFrames);
     }
 
+    /** Returns the amount of time the frame clock would sleep until to
+        get in sync with the output frames, assuming the frame counter
+        was increasted by the specified number of frames. */
     inline auto wouldSleepUntil(unsigned long gotFrames = 0) noexcept {
         auto until = T::now();
         auto frames = frames_ + static_cast<FrameCounter>(gotFrames);
@@ -87,6 +93,8 @@ template <typename T = std::chrono::steady_clock> class FrameClock {
         return until;
     }
 
+    /** Synchronizes with the frame clock by sleeping the current thread
+        if ahead by at least the given number of frames. */
     inline void sleepIf(std::size_t atLeastFrames) noexcept {
         while (frames_ >= static_cast<FrameCounter>(atLeastFrames)) {
             auto nanosToSleep = frameDuration_ * (frames_ - atLeastFrames / 2);

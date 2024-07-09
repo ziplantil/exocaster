@@ -34,30 +34,46 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
+/** Loads a value of the type T at the aligned pointer P.
+
+    Requires that T is trivial, and that the pointer is either a
+    void pointer, a pointer to T, or a pointer to bytes (chars). */
 template <typename T, typename P>
-    requires(std::is_same_v<P, void> || sizeof(P) == 1)
+    requires(std::is_same_v<P, T> || std::is_void_v<P> || sizeof(P) == 1)
 T alignedLoad(const P* ptr) {
     return *reinterpret_cast<const T*>(ptr);
 }
 
+/** Loads a value of the type T at the possibly unaligned pointer P.
+
+    Requires that T is trivial, and that the pointer is either a
+    void pointer, a pointer to T, or a pointer to bytes (chars). */
 template <typename T, typename P>
     requires(std::is_trivial_v<T> &&
-             (std::is_same_v<P, void> || sizeof(P) == 1))
+             (std::is_same_v<P, T> || std::is_void_v<P> || sizeof(P) == 1))
 T unalignedLoad(const P* ptr) {
     T val;
     std::memcpy(&val, ptr, sizeof(val));
     return val;
 }
 
+/** Stores a value of the type T at the aligned pointer P.
+
+    Requires that T is trivial, and that the pointer is either a
+    void pointer, a pointer to T, or a pointer to bytes (chars). */
 template <typename T, typename P>
-    requires(std::is_same_v<P, void> || sizeof(P) == 1)
+    requires(std::is_same_v<P, T> || std::is_void_v<P> || sizeof(P) == 1)
 void alignedStore(P* ptr, const T& val) {
     *reinterpret_cast<T*>(ptr) = val;
 }
 
+/** Stores a value of the type T at the possibly unaligned pointer P.
+
+    Requires that T is trivial, and that the pointer is either a
+    void pointer, a pointer to T, or a pointer to bytes (chars). */
 template <typename T, typename P>
     requires(std::is_trivial_v<T> &&
-             (std::is_same_v<P, void> || sizeof(P) == 1))
+             (std::is_same_v<P, T> || std::is_void_v<P> || sizeof(P) == 1))
 void unalignedStore(P* ptr, const T& val) {
     std::memcpy(ptr, &val, sizeof(val));
 }

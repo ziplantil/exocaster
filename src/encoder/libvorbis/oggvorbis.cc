@@ -106,11 +106,10 @@ void exo::OggVorbisEncoder::pushPage_(const ogg_page& page) {
     std::uint_least64_t newGranulePosition = ogg_page_granulepos(&page);
     std::size_t granules = newGranulePosition - lastGranulePosition_;
 
-    packet(0, {page.header, static_cast<size_t>(page.header_len)});
-    packet(granules, {page.body, static_cast<size_t>(page.body_len)});
+    packet(0, {page.header, static_cast<std::size_t>(page.header_len)});
+    packet(granules, {page.body, static_cast<std::size_t>(page.body_len)});
 
-    granulesInPage_ -=
-        static_cast<std::size_t>(newGranulePosition - lastGranulePosition_);
+    granulesInPage_ -= granules;
     lastGranulePosition_ = newGranulePosition;
     endOfStream_ = ogg_page_eos(&page);
 }
@@ -174,8 +173,12 @@ void exo::OggVorbisEncoder::startTrack(const exo::Metadata& metadata) {
 
     std::array<ogg_packet, 3> heads;
     vorbis_analysis_headerout(dsp, comment, &heads[0], &heads[1], &heads[2]);
-    for (unsigned i = 0; i < heads.size(); ++i)
-        ogg_stream_packetin(stream, &heads[i]);
+    for (unsigned i = 0; i < heads.size(); ++i) {
+        if (ogg_stream_packetin(stream, &heads[i]) < 0) {
+            EXO_LOG("ogg_stream_packetin failed");
+            return;
+        }
+    }
 
     granulesInPage_ = 0;
     lastGranulePosition_ = 0;
@@ -191,7 +194,7 @@ void exo::OggVorbisEncoder::flushBuffers_() {
 
     ogg_page page;
     ogg_packet packet;
-    unsigned long flushThreshold = pcmFormat_.rate * 2;
+    const unsigned long flushThreshold = pcmFormat_.rate * 2;
 
     while (vorbis_analysis_blockout(dsp, block) == 1 &&
            EXO_LIKELY(exo::shouldRun())) {
@@ -200,7 +203,11 @@ void exo::OggVorbisEncoder::flushBuffers_() {
 
         while (vorbis_bitrate_flushpacket(dsp, &packet) &&
                EXO_LIKELY(exo::shouldRun())) {
-            ogg_stream_packetin(stream, &packet);
+            if (ogg_stream_packetin(stream, &packet) < 0) {
+                EXO_LOG("ogg_stream_packetin failed");
+                endTrack();
+                return;
+            }
 
             while (EXO_LIKELY(!endOfStream_ && exo::shouldRun())) {
                 int result;

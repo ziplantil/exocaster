@@ -36,6 +36,19 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
+/** A reference counter class that can be used to manage global initialization
+    and cleanup of C libraries. One GlobalLibrary counter exists per type,
+    and normally you want to use CRTP (curiously recurring template pattern)
+    for this; create a subclass inheriting from this template, and implement
+    two functions: init() and quit(), taking no parameters and returning void.
+    Throw from init() if initialization fails.
+
+    When an instance of such a class is created, the counter for that class
+    is incremented. The init() function is called when the counter is
+    incremented from zero. Finally, when the value is destroyed, the
+    counter is decremented, and quit() is called if it reaches zero.
+
+    GlobalLibrary instances can be moved, but not copied. */
 template <typename T> class GlobalLibrary {
     inline static std::size_t count_{0};
     inline static std::mutex mutex_;

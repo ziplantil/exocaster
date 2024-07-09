@@ -32,7 +32,6 @@ DEALINGS IN THE SOFTWARE.
 #include <memory>
 
 #include "queue/queue.hh"
-#include "uuid.hh"
 
 namespace exo {
 
@@ -45,11 +44,10 @@ struct Command {
 class CommandQueue {
   private:
     std::unique_ptr<exo::BaseReadQueue> below_;
-    std::string instanceId_;
 
   public:
     inline CommandQueue(std::unique_ptr<exo::BaseReadQueue>&& below)
-        : below_(std::move(below)), instanceId_(exo::UUID::uuid7().str()) {}
+        : below_(std::move(below)) {}
 
     exo::Command nextCommand();
     void close();

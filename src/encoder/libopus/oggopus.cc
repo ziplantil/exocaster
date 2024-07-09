@@ -29,7 +29,6 @@ DEALINGS IN THE SOFTWARE.
 #include <array>
 #include <initializer_list>
 #include <memory>
-#include <opus/opus_defines.h>
 #include <random>
 #include <stdexcept>
 
@@ -46,6 +45,7 @@ DEALINGS IN THE SOFTWARE.
 extern "C" {
 #include <ogg/ogg.h>
 #include <opus/opus.h>
+#include <opus/opus_defines.h>
 }
 
 namespace exo {
@@ -53,7 +53,7 @@ namespace exo {
 exo::OpusEncoder::OpusEncoder(opus_int32 Fs, int channels, int application)
     : PointerSlot(nullptr) {
     int error;
-    modify() = opus_encoder_create(Fs, channels, application, &error);
+    set() = opus_encoder_create(Fs, channels, application, &error);
     if (!has()) {
         EXO_LOG("opus_encoder_create failed (%d): %s", error,
                 opus_strerror(error));
@@ -75,7 +75,11 @@ exo::OggOpusEncoder::OggOpusEncoder(
     const exo::ConfigObject& config, std::shared_ptr<exo::PcmBuffer> source,
     exo::PcmFormat pcmFormat, const exo::ResamplerFactory& resamplerFactory)
     : BaseEncoder(source, pcmFormat), encoder_(nullptr) {
-    bitrate_ = cfg::namedInt<std::int_least32_t>(config, "bitrate", -1);
+    bitrate_ = cfg::namedInt<std::int_least32_t>(config, "bitrate", 0);
+    complexity_ = cfg::namedInt<std::int_least32_t>(config, "complexity", 10);
+
+    if (complexity_ < 0 || complexity_ > 10)
+        throw std::runtime_error("oggopus complexity out of range [0, 10]");
 
     switch (pcmFormat.channels) {
     case exo::PcmChannelLayout::Mono:
@@ -132,11 +136,10 @@ void exo::OggOpusEncoder::pushPage_(const ogg_page& page) {
     std::uint_least64_t newGranulePosition = ogg_page_granulepos(&page);
     std::size_t granules = newGranulePosition - lastGranulePosition_;
 
-    packet(0, {page.header, static_cast<size_t>(page.header_len)});
-    packet(granules, {page.body, static_cast<size_t>(page.body_len)});
+    packet(0, {page.header, static_cast<std::size_t>(page.header_len)});
+    packet(granules, {page.body, static_cast<std::size_t>(page.body_len)});
 
-    granulesInPage_ -=
-        static_cast<std::size_t>(newGranulePosition - lastGranulePosition_);
+    granulesInPage_ -= granules;
     lastGranulePosition_ = newGranulePosition;
     endOfStream_ = ogg_page_eos(&page);
 }
@@ -254,6 +257,16 @@ static void makeOggOpusMeta(std::vector<exo::byte>& v,
         exo::addField(v, metadata[i].first, metadata[i].second);
 }
 
+ogg_packet exo::OggOpusEncoder::makeOggPacket_(std::span<byte> data, bool eos) {
+    bool bos = packetIndex_ == 0;
+    return ogg_packet{.packet = data.data(),
+                      .bytes = static_cast<long>(data.size()),
+                      .b_o_s = bos ? 1 : 0,
+                      .e_o_s = eos ? 1 : 0,
+                      .granulepos = static_cast<ogg_int64_t>(granuleIndex_),
+                      .packetno = static_cast<ogg_int64_t>(packetIndex_++)};
+}
+
 void exo::OggOpusEncoder::startTrack(const exo::Metadata& metadata) {
     if (init_)
         endTrack();
@@ -270,8 +283,14 @@ void exo::OggOpusEncoder::startTrack(const exo::Metadata& metadata) {
         return;
     }
 
-    if (bitrate_ >= 0) {
+    if (bitrate_ > 0) {
         if ((ret = opus_encoder_ctl(enc, OPUS_SET_BITRATE(bitrate_))) < 0) {
+            EXO_OPUS_ERROR("opus_encoder_ctl(OPUS_SET_BITRATE)", ret);
+            return;
+        }
+    } else if (bitrate_ < 0) {
+        if ((ret = opus_encoder_ctl(enc, OPUS_SET_BITRATE(OPUS_BITRATE_MAX))) <
+            0) {
             EXO_OPUS_ERROR("opus_encoder_ctl(OPUS_SET_BITRATE)", ret);
             return;
         }
@@ -280,6 +299,11 @@ void exo::OggOpusEncoder::startTrack(const exo::Metadata& metadata) {
     int lookahead;
     if ((ret = opus_encoder_ctl(enc, OPUS_GET_LOOKAHEAD(&lookahead))) < 0) {
         EXO_OPUS_ERROR("opus_encoder_ctl(OPUS_GET_LOOKAHEAD)", ret);
+        return;
+    }
+
+    if ((ret = opus_encoder_ctl(enc, OPUS_SET_COMPLEXITY(complexity_))) < 0) {
+        EXO_OPUS_ERROR("opus_encoder_ctl(OPUS_SET_COMPLEXITY)", ret);
         return;
     }
 
@@ -299,12 +323,7 @@ void exo::OggOpusEncoder::startTrack(const exo::Metadata& metadata) {
 
     // Opus header packet
     OpusHeaderPacket opusHeader;
-    packet.b_o_s = 1;
-    packet.e_o_s = 0;
-    packet.granulepos = granuleIndex_;
-    packet.packetno = packetIndex_++;
-    packet.packet = opusHeader.data();
-    packet.bytes = exo::makeOggOpusHeader(
+    std::size_t opusHeaderSize = exo::makeOggOpusHeader(
         opusHeader,
         exo::OggOpusHeader{.version = 1,
                            .channels = static_cast<std::uint8_t>(channels_),
@@ -312,24 +331,41 @@ void exo::OggOpusEncoder::startTrack(const exo::Metadata& metadata) {
                            .sampleRate =
                                static_cast<std::uint32_t>(pcmFormat_.rate),
                            .gain = 0});
-    ogg_stream_packetin(stream, &packet);
+    packet = makeOggPacket_({opusHeader.data(), opusHeaderSize});
+    if (ogg_stream_packetin(stream, &packet) < 0) {
+        EXO_LOG("ogg_stream_packetin failed");
+        return;
+    }
 
-    // comment packet
-    std::vector<exo::byte> metaPacket;
-    exo::makeOggOpusMeta(metaPacket, metadata);
-    packet.b_o_s = 0;
-    packet.e_o_s = 0;
-    packet.granulepos = granuleIndex_;
-    packet.packetno = packetIndex_++;
-    packet.packet = metaPacket.data();
-    packet.bytes = metaPacket.size();
-    ogg_stream_packetin(stream, &packet);
+    // Vorbis comment packet
+    {
+        std::vector<exo::byte> metaPacket;
+        exo::makeOggOpusMeta(metaPacket, metadata);
+        packet = makeOggPacket_({metaPacket.begin(), metaPacket.end()});
+        if (ogg_stream_packetin(stream, &packet) < 0) {
+            EXO_LOG("ogg_stream_packetin failed");
+            return;
+        }
+    }
 
     granulesInPage_ = 0;
     lastGranulePosition_ = 0;
+    lastToc_ = channels_ > 1 ? 0x3C : 0x1C;
     flushPages_();
     endOfStream_ = false;
     init_ = true;
+
+    // feed silence to compensate for lookahead
+    std::size_t precomp = static_cast<std::size_t>(lookahead) * channels_;
+    std::fill(pcm_.begin(), pcm_.end(), 0.0f);
+    const auto size = pcm_.size();
+    while (precomp >= size) {
+        precomp -= size;
+        pcmIndex_ = size;
+        flushBuffer_(false);
+        EXO_ASSERT(pcmIndex_ == 0);
+    }
+    pcmIndex_ = precomp;
 }
 
 template <typename T, exo::PcmSampleFormat fmt>
@@ -365,28 +401,14 @@ void exo::OggOpusEncoder::flushBuffer_(bool force) {
         if (!force)
             return; // not enough data yet
 
-        // fill rest with silence and feed what we have
-        std::size_t pcmFill;
-        std::size_t minBuffer = pcm_.size() / 8; // 20 ms, 10 ms, 5 ms, 2.5 ms
-
-        if (pcmIndex_ <= minBuffer)
-            pcmFill = minBuffer; // 2.5 ms
-        else if (pcmIndex_ <= minBuffer * 2)
-            pcmFill = minBuffer * 2; // 5 ms
-        else if (pcmIndex_ <= minBuffer * 4)
-            pcmFill = minBuffer * 4; // 10 ms
-        else
-            pcmFill = pcm_.size(); // 20 ms
-
-        std::fill(&pcm_[pcmIndex_], &pcm_[pcmFill], 0.0f);
-        pcmIndex_ = pcmFill;
+        // fill rest of block with silence
+        std::fill(pcm_.begin() + pcmIndex_, pcm_.end(), 0.0f);
+        pcmIndex_ = pcm_.size();
     }
 
     std::size_t sampleCount = std::exchange(pcmIndex_, 0);
     auto frameCount = sampleCount / channels_;
-
-    ogg_packet packet;
-    unsigned long flushThreshold = rate_ * 2;
+    EXO_ASSERT(trueFrames <= frameCount);
 
     int ret = opus_encode_float(enc, pcm_.data(), frameCount, opus_.data(),
                                 opus_.size());
@@ -395,17 +417,24 @@ void exo::OggOpusEncoder::flushBuffer_(bool force) {
         init_ = false;
         return;
     }
+    // no data returned?
+    if (!ret)
+        return;
+
+    lastToc_ = opus_[0];
 
     // build ogg packet
     granuleIndex_ += trueFrames;
-    packet.b_o_s = 0;
-    packet.e_o_s = 0;
-    packet.granulepos = granuleIndex_;
-    packet.packetno = packetIndex_++;
-    packet.packet = opus_.data();
-    packet.bytes = ret;
-    ogg_stream_packetin(stream, &packet);
+    ogg_packet packet =
+        makeOggPacket_({opus_.data(), static_cast<std::size_t>(ret)});
+    if (ogg_stream_packetin(stream, &packet) < 0) {
+        EXO_LOG("ogg_stream_packetin failed");
+        endTrack();
+        return;
+    }
+    granulesInPage_ += trueFrames;
 
+    const unsigned long flushThreshold = rate_ * 2;
     ogg_page page;
     while (EXO_LIKELY(!endOfStream_ && exo::shouldRun())) {
         int result;
@@ -439,7 +468,6 @@ void exo::OggOpusEncoder::flushResampler_(std::span<const float> samples) {
             {pcm_.begin() + pcmIndex_, pcm_.end()}, {begin, samples.end()});
         begin += result.read * channels_;
         pcmIndex_ += result.wrote * channels_;
-        granulesInPage_ += result.wrote;
         if (pcmIndex_ == pcm_.size()) {
             flushBuffer_(false);
         }
@@ -454,7 +482,6 @@ void exo::OggOpusEncoder::flushResampler_() {
         if (!wrote)
             break;
         pcmIndex_ += wrote * channels_;
-        granulesInPage_ += wrote;
         if (pcmIndex_ == pcm_.size()) {
             flushBuffer_(false);
         }
@@ -484,11 +511,23 @@ void exo::OggOpusEncoder::pcmBlock(std::size_t frameCount,
     }
 }
 
+std::size_t exo::OggOpusEncoder::makeFinalOpusFrame_() {
+    std::size_t n = 0;
+    // use the config from the last TOC, but with code 0
+    // our packet will be a single byte and thus be empty,
+    // but at least have a TOC, like every Opus frame must.
+    opus_[n++] = lastToc_ & 0x3FU;
+    return n;
+}
+
 void exo::OggOpusEncoder::endTrack() {
     if (!init_)
         return;
     flushResampler_();
     flushBuffer_(true);
+    auto n = makeFinalOpusFrame_();
+    ogg_packet packet = makeOggPacket_({opus_.data(), n}, true);
+    ogg_stream_packetin(stream_->get(), &packet);
     flushPages_();
     init_ = false;
 }

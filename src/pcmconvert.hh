@@ -122,6 +122,7 @@ inline F convertSampleToFloat(const exo::PcmFormat_t<fmt>& x) {
     F y;
     if constexpr (exo::IsSampleFloatingPoint_v<fmt>) {
         y = x;
+
     } else if constexpr (std::is_unsigned_v<T>) {
         using W = exo::WiderType_t<T>;
         constexpr auto min = static_cast<W>(exo::PcmFormatDefs<fmt>::min);
@@ -141,7 +142,7 @@ inline F convertSampleToFloat(const exo::PcmFormat_t<fmt>& x) {
         y = x * scale;
     }
 
-    return static_cast<F>(std::clamp(static_cast<F>(y), F{-1}, F{+1}));
+    return std::clamp<F>(static_cast<F>(y), F{-1}, F{+1});
 }
 
 template <typename TA, typename TB>

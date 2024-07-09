@@ -84,6 +84,8 @@ static exo::PcmSampleFormat readPcmFormat(const std::string& string) {
         return exo::PcmSampleFormat::S16;
     else if (string == "f32")
         return exo::PcmSampleFormat::F32;
+    // S24 is currently for internal use only
+    // and is not accessible through config
     throw exo::InvalidConfigError("unsupported PCM format '" + string + "'");
 }
 

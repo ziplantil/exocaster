@@ -38,12 +38,23 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
+static constexpr double TAU = 2 * std::numbers::pi_v<double>;
+
+TestcardDecodeJob::TestcardDecodeJob(std::shared_ptr<exo::PcmSplitter> sink,
+                                     exo::PcmFormat pcmFormat,
+                                     std::shared_ptr<exo::ConfigObject> command,
+                                     std::size_t frames,
+                                     const exo::TestcardParameters& params)
+    : BaseDecodeJob(sink, pcmFormat, std::move(command)), frames_(frames),
+      freq_(TAU * std::abs(params.frequency) / pcmFormat_.rate),
+      ampl_((freq_ < 0 ? -1 : 1) * std::clamp(params.amplitude, 0.0, 1.0)) {}
+
 void TestcardDecodeJob::run(std::shared_ptr<exo::PcmSplitter> sink) {
     exo::byte block[8192];
     std::size_t framesPerBlock = sizeof(block) / pcmFormat_.bytesPerFrame();
 
-    constexpr double tau = 2 * std::numbers::pi_v<double>;
-    double f = tau * 1000.0 / pcmFormat_.rate;
+    const double f = freq_;
+    const double a = ampl_;
     double x = 0.0;
 
     sink->metadata(command_, {});
@@ -52,13 +63,13 @@ void TestcardDecodeJob::run(std::shared_ptr<exo::PcmSplitter> sink) {
         exo::byte* destination = block;
 
         for (std::size_t i = 0; i < framesThisBlock; ++i) {
-            double v = std::sin(x + f * i) * 0.75;
+            double v = std::sin(x + f * i) * a;
             for (unsigned j = 0; j < exo::channelCount(pcmFormat_.channels);
                  ++j)
                 destination =
                     exo::outputSample(destination, pcmFormat_.sample, v);
         }
-        x = std::fmod(x + f * framesThisBlock, tau);
+        x = std::fmod(x + f * framesThisBlock, TAU);
 
         frames_ -= framesThisBlock;
         sink->pcm({block, static_cast<std::size_t>(destination - block)});
@@ -83,7 +94,14 @@ TestcardDecoder::createJob(const exo::ConfigObject& request,
 
     auto frames = pcmFormat_.durationToFrameCount(duration);
     return {std::make_unique<exo::TestcardDecodeJob>(sink_, pcmFormat_, command,
-                                                     frames)};
+                                                     frames, params_)};
+}
+
+TestcardDecoder::TestcardDecoder(const exo::ConfigObject& config,
+                                 exo::PcmFormat pcmFormat)
+    : BaseDecoder(pcmFormat) {
+    params_.amplitude = cfg::namedFloat(config, "amplitude", 0.5);
+    params_.frequency = cfg::namedFloat(config, "frequency", 1000);
 }
 
 } // namespace exo

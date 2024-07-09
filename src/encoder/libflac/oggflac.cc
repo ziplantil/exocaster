@@ -80,7 +80,8 @@ exo::FlacStreamMetadata::~FlacStreamMetadata() noexcept {
         FLAC__metadata_object_delete(release());
 }
 
-static exo::PcmSampleFormat getFlacSampleFormat(exo::PcmSampleFormat fmt) {
+static exo::PcmSampleFormat getFlacSampleFormat(exo::PcmSampleFormat fmt,
+                                                bool float24) {
     if (exo::areSamplesSignedInt(fmt))
         return fmt;
     if (exo::areSamplesUnsignedInt(fmt) || exo::areSamplesFloatingPoint(fmt)) {
@@ -92,7 +93,8 @@ static exo::PcmSampleFormat getFlacSampleFormat(exo::PcmSampleFormat fmt) {
         case exo::PcmSampleFormat::U8:
             return exo::PcmSampleFormat::S8;
         case exo::PcmSampleFormat::F32:
-            return exo::PcmSampleFormat::S16;
+            return float24 ? exo::PcmSampleFormat::S24
+                           : exo::PcmSampleFormat::S16;
         default:
             EXO_UNREACHABLE;
         }
@@ -125,7 +127,8 @@ exo::OggFlacEncoder::OggFlacEncoder(
     if (channels_ != exo::channelCount(pcmFormat.channels))
         throw std::runtime_error("flac encoder: unsupported channel layout");
 
-    flacSampleFormat_ = exo::getFlacSampleFormat(pcmFormat.sample);
+    flacSampleFormat_ = exo::getFlacSampleFormat(
+        pcmFormat.sample, cfg::namedBoolean(config, "float24", false));
     if (!exo::areSamplesSignedInt(flacSampleFormat_))
         throw std::runtime_error("internal error: FLAC must take signed int");
 
@@ -154,7 +157,7 @@ void exo::OggFlacEncoder::startTrack(const exo::Metadata& metadata) {
         return;
     }
     if (!FLAC__stream_encoder_set_bits_per_sample(
-            enc, CHAR_BIT * exo::bytesPerSampleFormat(flacSampleFormat_))) {
+            enc, exo::effectiveBitsPerSampleFormat(flacSampleFormat_))) {
         EXO_LOG("FLAC__stream_encoder_set_bits_per_sample returned false");
         return;
     }
@@ -283,6 +286,9 @@ static void convertSampleToInt32(FLAC__int32* dst, const exo::byte* src,
             dst, src, samples, srcFormat);
     case exo::PcmSampleFormat::S16:
         return convertSampleToInt32_<exo::PcmSampleFormat::S16>(
+            dst, src, samples, srcFormat);
+    case exo::PcmSampleFormat::S24:
+        return convertSampleToInt32_<exo::PcmSampleFormat::S24>(
             dst, src, samples, srcFormat);
     default:
         throw std::runtime_error("internal error: unsupported dstFormat");

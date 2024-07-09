@@ -17,3 +17,9 @@ Configure `Makefile.inc` and run `make`.
 
 Provide a configuration file (see the configuration help under `docs`)
 and run the executable.
+
+## Notes
+
+Exocaster bears no relation to ExoPlayer. The naming is a coincidence,
+in reference to earlier private streaming applications named after
+layers of the atmosphere.

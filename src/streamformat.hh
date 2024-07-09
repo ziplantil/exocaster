@@ -36,10 +36,10 @@ DEALINGS IN THE SOFTWARE.
 namespace exo {
 
 enum class EncodedStreamFormatCodec {
+    MP3,
     OGG_VORBIS,
     OGG_OPUS,
     OGG_FLAC,
-    MP3,
 };
 
 struct EncodedStreamFormat {

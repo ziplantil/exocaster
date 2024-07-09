@@ -45,24 +45,32 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
+/** Explicitly defaulted copy constructor, copy assignment,
+    move constructor, move assignment */
 #define EXO_DEFAULT_COPYABLE(T)                                                \
     T(const T&) = default;                                                     \
     T& operator=(const T&) = default;                                          \
     T(T&&) = default;                                                          \
     T& operator=(T&&) = default;
 
+/** Explicitly defaulted move constructor, move assignment,
+    and explicitly deleted copy constructor, copy assignment */
 #define EXO_DEFAULT_NONCOPYABLE(T)                                             \
     T(const T&) = delete;                                                      \
     T& operator=(const T&) = delete;                                           \
     T(T&&) = default;                                                          \
     T& operator=(T&&) = default;
 
+/** Explicitly deleted copy constructor, copy assignment,
+    move constructor, move assignment */
 #define EXO_DEFAULT_NONMOVABLE(T)                                              \
     T(const T&) = delete;                                                      \
     T& operator=(const T&) = delete;                                           \
     T(T&&) = delete;                                                           \
     T& operator=(T&&) = delete;
 
+/** Explicitly defaulted copy constructor, copy assignment,
+    move constructor, move assignment, destructor */
 #define EXO_DEFAULT_COPYABLE_DEFAULT_DESTRUCTOR(T)                             \
     T(const T&) = default;                                                     \
     T& operator=(const T&) = default;                                          \
@@ -70,6 +78,8 @@ namespace exo {
     T& operator=(T&&) = default;                                               \
     ~T() = default;
 
+/** Explicitly defaulted move constructor, move assignment, destructor,
+    and explicitly deleted copy constructor, copy assignment */
 #define EXO_DEFAULT_NONCOPYABLE_DEFAULT_DESTRUCTOR(T)                          \
     T(const T&) = delete;                                                      \
     T& operator=(const T&) = delete;                                           \
@@ -77,6 +87,8 @@ namespace exo {
     T& operator=(T&&) = default;                                               \
     ~T() = default;
 
+/** Explicitly defaulted copy constructor, copy assignment,
+    move constructor, move assignment + virtual default destructor */
 #define EXO_DEFAULT_COPYABLE_VIRTUAL_DESTRUCTOR(T)                             \
     T(const T&) = default;                                                     \
     T& operator=(const T&) = default;                                          \
@@ -84,6 +96,9 @@ namespace exo {
     T& operator=(T&&) = default;                                               \
     virtual ~T() = default;
 
+/** Explicitly defaulted move constructor, move assignment,
+    and explicitly deleted copy constructor, copy assignment
+    + virtual default destructor */
 #define EXO_DEFAULT_NONCOPYABLE_VIRTUAL_DESTRUCTOR(T)                          \
     T(const T&) = delete;                                                      \
     T& operator=(const T&) = delete;                                           \

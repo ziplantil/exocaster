@@ -31,7 +31,6 @@ DEALINGS IN THE SOFTWARE.
 #include <vector>
 
 #include "encoder/pcm.hh"
-#include "helpers.hh"
 #include "log.hh"
 #include "packet.hh"
 #include "server.hh"
@@ -140,7 +139,7 @@ void BaseEncoder::run() {
         }
 
         auto t0 = std::chrono::steady_clock::now();
-        std::size_t n = source_->readPcm(exo::arrayAsSpan(buffer));
+        std::size_t n = source_->readPcm(buffer);
         auto t1 = std::chrono::steady_clock::now();
         if (EXO_LIKELY(n)) {
             auto waitMs =

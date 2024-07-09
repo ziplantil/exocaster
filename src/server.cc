@@ -42,6 +42,7 @@ DEALINGS IN THE SOFTWARE.
 #include "registry.hh"
 #include "server.hh"
 #include "serverconfig.hh"
+#include "uuid.hh"
 #include "version.hh"
 
 namespace exo {

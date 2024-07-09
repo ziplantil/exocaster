@@ -32,6 +32,7 @@ DEALINGS IN THE SOFTWARE.
 #include "log.hh"
 #include "queue/curl/curl.hh"
 #include "server.hh"
+#include "slot.hh"
 #include "util.hh"
 #include "version.hh"
 
@@ -81,9 +82,14 @@ exo::HttpClient::HttpClient(const exo::ConfigObject& config,
     }
 }
 
-void exo::CURLDeleter::operator()(CURL* curl) const noexcept {
-    if (curl)
-        curl_easy_cleanup(curl);
+CURL::CURL(::CURL* p) : PointerSlot(p) {
+    if (!has())
+        throw std::bad_alloc();
+}
+
+CURL::~CURL() noexcept {
+    if (has())
+        curl_easy_cleanup(release());
 }
 
 static void curlError_(const char* file, std::size_t lineno, const char* fn,
@@ -94,8 +100,8 @@ static void curlError_(const char* file, std::size_t lineno, const char* fn,
 
 #define EXO_CURL_ERROR(fn, ret) exo::curlError_(__FILE__, __LINE__, fn, ret)
 
-static exo::CURLPtr getCurl() {
-    CURL* curl{nullptr};
+static exo::CURL getCurl() {
+    ::CURL* curl;
     do {
         curl = curl_easy_init();
         if (!curl) {
@@ -103,7 +109,7 @@ static exo::CURLPtr getCurl() {
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
     } while (!curl);
-    return exo::CURLPtr(curl);
+    return exo::CURL(curl);
 };
 
 exo::HttpGetReadQueue::HttpGetReadQueue(const exo::ConfigObject& config,
@@ -120,17 +126,17 @@ static const char* staticHeadersGet[] = {"Accept: application/json"};
 
 static const char* staticHeadersPost[] = {"Content-Type: application/json"};
 
-struct CURLSListDeleter {
-    void operator()(struct curl_slist* list) const noexcept {
-        if (list)
-            curl_slist_free_all(list);
+struct CURLSList : PointerSlot<CURLSList, curl_slist> {
+    using PointerSlot::PointerSlot;
+    ~CURLSList() noexcept {
+        if (has())
+            curl_slist_free_all(release());
     }
+    EXO_DEFAULT_NONCOPYABLE(CURLSList);
 };
 
-using CURLSListPtr = std::unique_ptr<struct curl_slist, CURLSListDeleter>;
-
-static bool copyUrlHeaders(const HttpClient& client, CURLPtr& curlPtr,
-                           CURLSListPtr& listOwner, const char* staticHeaders[],
+static bool copyUrlHeaders(const HttpClient& client, CURL& curlPtr,
+                           CURLSList& listOwner, const char* staticHeaders[],
                            std::size_t staticHeadersCount) {
     auto curl = curlPtr.get();
 
@@ -194,8 +200,8 @@ exo::ConfigObject exo::HttpGetReadQueue::readLine() {
     bool first = true;
 
     for (;;) {
-        CURLSListPtr slistPtr;
-        CURLPtr curlPtr = exo::getCurl();
+        CURLSList slistPtr{nullptr};
+        CURL curlPtr = exo::getCurl();
         auto curl = curlPtr.get();
 
         if (first)
@@ -253,8 +259,8 @@ std::ostream& exo::HttpPostWriteQueue::write() { return buffer_; }
 void exo::HttpPostWriteQueue::writeLine() {
     auto str = std::move(buffer_).str();
 
-    CURLSListPtr slistPtr;
-    CURLPtr curlPtr = exo::getCurl();
+    CURLSList slistPtr{nullptr};
+    CURL curlPtr = exo::getCurl();
     auto curl = curlPtr.get();
 
     bool ok = exo::copyUrlHeaders(*this, curlPtr, slistPtr, staticHeadersPost,

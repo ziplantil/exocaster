@@ -70,12 +70,19 @@ class BaseEncoder {
         : source_(source), sinks_{}, pcmFormat_(pcmFormat) {}
     EXO_DEFAULT_NONCOPYABLE_VIRTUAL_DESTRUCTOR(BaseEncoder)
 
+    /** Returns the format that this encoder encodes into. */
     virtual exo::StreamFormat streamFormat() const noexcept = 0;
 
+    /** Marks the start of a track, with metadata. */
     virtual void startTrack(const exo::Metadata& metadata) = 0;
-    // only called with complete frames
+
+    /** Feeds a block of PCM data with the given number of frames
+        (samples per channel) to the encoder. */
     virtual void pcmBlock(std::size_t frameCount,
                           std::span<const exo::byte> data) = 0;
+
+    /** Marks the end of a track. Guaranteed to be called once for
+        every startTrack, and before startTrack is called again. */
     virtual void endTrack() {}
 
     inline void addSink(std::shared_ptr<exo::PacketRingBuffer> ptr) {

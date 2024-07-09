@@ -33,25 +33,31 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
+struct TestcardParameters {
+    double amplitude;
+    double frequency;
+};
+
 class TestcardDecodeJob : public exo::BaseDecodeJob {
   protected:
     std::size_t frames_;
+    double freq_, ampl_;
 
   public:
-    inline TestcardDecodeJob(std::shared_ptr<exo::PcmSplitter> sink,
-                             exo::PcmFormat pcmFormat,
-                             std::shared_ptr<exo::ConfigObject> command,
-                             std::size_t frames)
-        : BaseDecodeJob(sink, pcmFormat, std::move(command)), frames_(frames) {}
+    TestcardDecodeJob(std::shared_ptr<exo::PcmSplitter> sink,
+                      exo::PcmFormat pcmFormat,
+                      std::shared_ptr<exo::ConfigObject> command,
+                      std::size_t frames,
+                      const exo::TestcardParameters& params);
 
     void run(std::shared_ptr<exo::PcmSplitter> sink);
 };
 
 class TestcardDecoder : public exo::BaseDecoder {
+    TestcardParameters params_;
+
   public:
-    inline TestcardDecoder(const exo::ConfigObject& config,
-                           exo::PcmFormat pcmFormat)
-        : BaseDecoder(pcmFormat) {}
+    TestcardDecoder(const exo::ConfigObject& config, exo::PcmFormat pcmFormat);
 
     std::optional<std::unique_ptr<BaseDecodeJob>>
     createJob(const exo::ConfigObject& request,

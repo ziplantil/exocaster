@@ -40,7 +40,16 @@ namespace exo {
 
     Use with a CRTP, i.e. uses should be structs inheriting from a
     specialization of this template, and implementing the
-    constructor and destructor. */
+    constructor and destructor.
+
+    In the usual pattern, the constructor should initialize the pointer with
+    a C constructor, and throw an exception if it is nullptr. If more logic
+    is needed, initialize the pointer as nullptr, try to set it through set(),
+    and throw an exception if it is null or if there was an error.
+
+    The destructor should check if the pointer is non-null with has()
+    and, if so, call release() to obtain the pointer and pass it to
+    the C destructor. */
 template <typename S, typename T> class PointerSlot {
   private:
     T* ptr_;
@@ -80,7 +89,8 @@ template <typename S, typename T> class PointerSlot {
     /** Returns a reference to the pointer for reallocation.
         Be careful! Does not run constructors or destructors. */
     T*& modify() noexcept { return ptr_; }
-    /** Releases the underlying pointer and resets the slot to null. */
+    /** Releases the underlying pointer without calling the
+        destructor and resets the slot to null. */
     T* release() noexcept { return std::exchange(ptr_, nullptr); }
 
     /** Checks whether the pointer is not null. */
@@ -117,8 +127,14 @@ template <typename S, typename T> class PointerSlot {
     specialization of this template, and implementing the
     constructor and destructor.
 
+    In the usual pattern, the constructor should pass the get() pointer to
+    the C initialization function, and throw an exception if it is nullptr or
+    if there was an error. The destructor should pass get() as the pointer
+    to the C cleanup function.
+
     Since this owns the value, it's a good idea to use std::unique_ptr
-    with this, e.g. std::unique_ptr<exo::SpecializedValueSlot>. */
+    with this, e.g. std::unique_ptr<exo::SpecializedValueSlot>.
+    The underlying ValueSlot cannot be copied or moved. */
 template <typename S, typename T> class ValueSlot {
   private:
     T val_;
@@ -139,6 +155,7 @@ template <typename S, typename T> class ValueSlot {
     T* operator->() noexcept { return &val_; }
     const T* operator->() const noexcept { return &val_; }
 
+    /** Exchanges the value in this slot with the given value. */
     ValueSlot<S, T>& exchange(T&& val) noexcept {
         static_cast<S*>(this)->~S();
         val_ = std::move(val);

@@ -31,6 +31,7 @@ A JSON object with the following fields:
 The supported codecs are MP3 and Ogg Vorbis. Ogg FLAC support is experimental
 and depends on a modified version of libshout that can accommodate
 OGG FLAC streams. It must be enabled when compiling Exocaster with the
-`EXO_SHOUT_ALLOW_OGGFLAC` define.
+`EXO_SHOUT_ALLOW_OGGFLAC` define. It is possible that no changes to libshout
+are needed if `selfsync` is enabled.
 
 The `shout` broca supports out-of-band metadata used by e.g. the `mp3` encoder.

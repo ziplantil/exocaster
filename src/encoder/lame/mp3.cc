@@ -93,6 +93,7 @@ void Mp3Encoder::startTrack(const exo::Metadata& metadata) {
     lame_ = Lame();
     auto lame = lame_.get();
 
+    // parameters
     if ((err = lame_set_in_samplerate(lame, pcmFormat_.rate)) < 0) {
         EXO_LAME_ERROR("lame_set_in_samplerate", err);
         return;

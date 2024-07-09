@@ -236,7 +236,7 @@ void exo::ShoutBroca::handleOutOfBandMetadata_(
             return;
         }
     } catch (const std::exception& e) {
-        EXO_LOG("metadata error: %s", e.what());
+        EXO_LOG("set metadata error: %s", e.what());
     }
 }
 

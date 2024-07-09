@@ -32,6 +32,7 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
+/** Generates a std:;string for out-of-band metadata. */
 std::string writeOutOfBandMetadata(const exo::Metadata& metadata) {
     std::ostringstream metadataJoined;
     // header
@@ -42,6 +43,7 @@ std::string writeOutOfBandMetadata(const exo::Metadata& metadata) {
     return metadataJoined.str();
 }
 
+/** Reads out-of-band metadata from a packet. */
 exo::Metadata readOutOfBandMetadata(exo::PacketRingBuffer::PacketRead& packet) {
     exo::byte buffer[256];
     if (packet.readFull(buffer, 4) < 4)

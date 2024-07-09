@@ -62,6 +62,7 @@ class OggOpusEncoder : public exo::BaseEncoder {
     std::size_t packetIndex_{0};
     int channels_;
     std::int_least32_t bitrate_;
+    int complexity_;
     std::vector<float> pcm_;
     std::vector<exo::byte> opus_;
     unsigned long rate_;
@@ -69,12 +70,15 @@ class OggOpusEncoder : public exo::BaseEncoder {
     std::size_t granuleIndex_{0};
     std::unique_ptr<exo::BaseMultiChannelResampler> resampler_;
     std::vector<float> mid_;
+    exo::byte lastToc_;
 
     void pushPage_(const ogg_page& page);
+    ogg_packet makeOggPacket_(std::span<byte> data, bool eos = false);
     void flushResampler_();
     void flushResampler_(std::span<const float> samples);
     void flushBuffer_(bool force);
     void flushPages_();
+    std::size_t makeFinalOpusFrame_();
 
   public:
     OggOpusEncoder(const exo::ConfigObject& config,

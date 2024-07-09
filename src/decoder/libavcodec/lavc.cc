@@ -215,11 +215,11 @@ LavcDecodeJob::LavcDecodeJob(std::shared_ptr<exo::PcmSplitter> sink,
         throw std::runtime_error("unsupported channel layout");
     }
 
-    if (pcmFormat_.rate > INT_MAX)
-        throw std::runtime_error("unsupported sample rate");
-
     if (av_channel_layout_from_mask(&outChLayout_, formatChannels))
         throw std::runtime_error("av_channel_layout_from_mask failed");
+
+    if (pcmFormat_.rate > INT_MAX)
+        throw std::runtime_error("unsupported sample rate");
 
     switch (pcmFormat_.sample) {
     case exo::PcmSampleFormat::U8:
@@ -245,7 +245,7 @@ LavcDecodeJob::LavcDecodeJob(std::shared_ptr<exo::PcmSplitter> sink,
 
 #if !USE_LIBAVFILTER
     int ret;
-    bufferFrameCount_ = pcmFormat_.rate / 4;
+    bufferFrameCount_ = pcmFormat_.rate / 4; // 250 ms
     ret = av_samples_alloc(&buffer_, nullptr, outChLayout_.nb_channels,
                            bufferFrameCount_, outSampleFmt_, 1);
     if (ret < 0 || !buffer_)
@@ -268,7 +268,8 @@ void LavcDecodeJob::init() {
     codecContext_.reset();
     if (EXO_UNLIKELY(
             (ret = avformat_open_input(&formatContext_.set(), filePath_.c_str(),
-                                       nullptr, nullptr)) < 0)) {
+                                       nullptr, nullptr)) < 0 ||
+            !formatContext_.get())) {
         EXO_LAVC_ERROR("avformat_open_input", ret);
         return;
     }
@@ -280,8 +281,6 @@ void LavcDecodeJob::init() {
         return;
     }
 
-    readMetadata_(formatContext_->metadata);
-
     const AVCodec* codec = nullptr;
     int streamIndex = av_find_best_stream(formatContext, AVMEDIA_TYPE_AUDIO, -1,
                                           -1, &codec, 0);
@@ -291,7 +290,14 @@ void LavcDecodeJob::init() {
     }
     streamIndex_ = streamIndex;
 
+    // read metadata from the container...
+    readMetadata_(formatContext_->metadata);
+
+    // ...and the codec
     readMetadata_(formatContext_->streams[streamIndex]->metadata);
+
+    // TODO: we do not read metadata from later on in the stream right now.
+    // should we? it's probably not relevant in most cases
 
 #if EXO_LAVC_DEBUG
     EXO_LOG("av_dump_format");
@@ -325,7 +331,8 @@ void LavcDecodeJob::init() {
 
     if (codecContext->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC &&
         codecContext->ch_layout.nb_channels <= 2) {
-        EXO_LOG("av_channel_layout_default");
+        EXO_LOG("applying av_channel_layout_default to audio stream "
+                "with unspecified channel layout");
         av_channel_layout_default(&codecContext->ch_layout,
                                   codecContext->ch_layout.nb_channels);
     }
@@ -357,53 +364,15 @@ void LavcDecodeJob::init() {
     canPlay_ = true;
 }
 
-int LavcDecodeJob::decodeFrames_(std::shared_ptr<exo::PcmSplitter>& sink,
-                                 bool flush) {
-    int ret;
-    auto codecContext = codecContext_.get();
-    auto frame = frame_.get();
-
-    while ((ret = avcodec_receive_frame(codecContext, frame)) >= 0) {
-#if USE_LIBAVFILTER
-        if (EXO_UNLIKELY((ret = av_buffersrc_add_frame_flags(
-                              bufferSourceContext_, frame,
-                              flush ? (AV_BUFFERSRC_FLAG_PUSH |
-                                       AV_BUFFERSRC_FLAG_KEEP_REF)
-                                    : AV_BUFFERSRC_FLAG_KEEP_REF)) < 0)) {
-            EXO_LAVC_ERROR("av_buffersrc_add_frame_flags", ret);
-            av_frame_unref(frame);
-            return ret;
-        }
-
-        ret = filterFrames_(sink, flush);
-#else
-        // hack <https://stackoverflow.com/q/77502983>
-        if (frame->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC &&
-            frame->ch_layout.nb_channels <= 2) {
-            av_channel_layout_default(&frame->ch_layout,
-                                      frame->ch_layout.nb_channels);
-        }
-
-        ret = processFrame_(sink, frame);
-#endif
-
-        av_frame_unref(frame);
-        if (EXO_UNLIKELY(ret < 0))
-            return ret;
-    }
-    if (EXO_UNLIKELY(ret != AVERROR(EAGAIN) && ret != AVERROR_EOF))
-        EXO_LAVC_ERROR("avcodec_receive_frame", ret);
-    return ret;
-}
-
 template <std::floating_point T> static constexpr T convertR128ToRG(T r128) {
+    // EBU R128 is 5 dB lower from ReplayGain
     return r128 + 5.0;
 }
 
 #if USE_LIBAVFILTER
 
 static bool alwaysApplyR128Fix(AVCodecContext* codec) {
-    // Opus has track gain
+    // Opus has gain normalized to EBU R128
     return codec->codec_id == AV_CODEC_ID_OPUS;
 }
 
@@ -443,19 +412,21 @@ bool LavcDecodeJob::setupFilter_() {
     auto outputs = outputsSlot.get(), inputs = inputsSlot.get();
 
     if (!outputs || !inputs) {
-        EXO_LOG("lavc: failed to allocate av filter I/O");
+        EXO_LOG("lavc: failed to allocate AVFilterInOut");
         return false;
     }
 
     char channelDescription[256];
-    auto timeBase = formatContext_->streams[streamIndex_]->time_base;
-    const char* sampleFmtName =
-        av_get_sample_fmt_name(codecContext_->sample_fmt);
-    av_channel_layout_describe(&codecContext_->ch_layout, channelDescription,
-                               sizeof(channelDescription));
 
     int ret;
     {
+        // build description of input PCM format for abuffer
+        auto timeBase = formatContext_->streams[streamIndex_]->time_base;
+        const char* sampleFmtName =
+            av_get_sample_fmt_name(codecContext_->sample_fmt);
+        av_channel_layout_describe(&codecContext_->ch_layout,
+                                   channelDescription,
+                                   sizeof(channelDescription));
         std::ostringstream pcmDescriptionStream;
         pcmDescriptionStream.imbue(std::locale::classic());
         pcmDescriptionStream
@@ -481,6 +452,7 @@ bool LavcDecodeJob::setupFilter_() {
         return false;
     }
 
+    // describe output format (PCM buffer format) to abuffersink
     const int outSampleFmts_[] = {outSampleFmt_, -1};
     ret = av_opt_set_int_list(filterSinkContext_, "sample_fmts", outSampleFmts_,
                               -1, AV_OPT_SEARCH_CHILDREN);
@@ -506,6 +478,7 @@ bool LavcDecodeJob::setupFilter_() {
         return false;
     }
 
+    // build AVFilterInOut objects
     outputs->name = av_strdup(bufferSourceContext_->name);
     outputs->filter_ctx = bufferSourceContext_;
     outputs->pad_idx = 0;
@@ -523,6 +496,7 @@ bool LavcDecodeJob::setupFilter_() {
 
     auto codecContext = codecContext_.get();
     {
+        // construct volume, aresample and aformat filters
         std::ostringstream filterDescriptionStream;
         filterDescriptionStream.imbue(std::locale::classic());
 
@@ -547,7 +521,7 @@ bool LavcDecodeJob::setupFilter_() {
                                    "aformat=sample_fmts="
                                 << av_get_sample_fmt_name(outSampleFmt_)
                                 << ":"
-                                   // still has outChLayout_
+                                   // still has the description of outChLayout_
                                    "channel_layouts="
                                 << channelDescription;
 
@@ -575,6 +549,8 @@ int LavcDecodeJob::filterFrames_(std::shared_ptr<exo::PcmSplitter>& sink,
                                  bool flush) {
     int ret;
     auto filterFrame = filterFrame_.get();
+
+    // pass filtered PCM data from filter sink to main PCM buffer
     while (EXO_LIKELY(exo::shouldRun()) &&
            (ret = av_buffersink_get_frame(filterSinkContext_, filterFrame)) >=
                0) {
@@ -585,9 +561,9 @@ int LavcDecodeJob::filterFrames_(std::shared_ptr<exo::PcmSplitter>& sink,
         sink->pcm({filterFrame_->data[0], dataSize});
         av_frame_unref(filterFrame);
     }
-    if (ret < 0 && (ret != AVERROR(EAGAIN) && ret != AVERROR_EOF)) {
+
+    if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
         EXO_LAVC_ERROR("av_buffersink_get_frame", ret);
-        av_frame_unref(filterFrame);
         return ret;
     }
     return 0;
@@ -595,6 +571,7 @@ int LavcDecodeJob::filterFrames_(std::shared_ptr<exo::PcmSplitter>& sink,
 
 #else // !USE_LIBAVFILTER
 
+// number of fractional bits in LavcGain::i
 static constexpr std::size_t REPLAYGAIN_FRAC_BITS = 12;
 
 using GainFixed = decltype(exo::LavcGain::i);
@@ -608,6 +585,7 @@ using GainType =
 template <std::signed_integral T>
 T applyGainToSampleSigned_(T sample, exo::GainFixed gain) {
     using Wide = exo::WiderType_t<T>;
+    // apply gain through integer (fixed-point) multiplication
     auto x = (static_cast<Wide>(sample) * gain) >> REPLAYGAIN_FRAC_BITS;
     return static_cast<T>(
         std::clamp(x, static_cast<Wide>(std::numeric_limits<T>::min()),
@@ -640,6 +618,7 @@ T applyGainToSampleUnsigned_(T sample, exo::GainFixed gain) {
 
 template <std::floating_point T>
 T applyGainToSampleFloat_(T sample, exo::GainFloat gain) {
+    // apply gain through floating-point multiplication
     return std::clamp(static_cast<T>(sample * gain), T{-1}, T{1});
 }
 
@@ -723,8 +702,8 @@ void LavcGainCalculator::r128Gain(float value) noexcept {
     if (accepts_(MASK_R128GAIN)) {
         r128Gain_ = value;
 
-        /* if we are still accepting ReplayGain, then it's from a lower
-           priority source, so pretend we do not have it */
+        /* if we are still accepting ReplayGain, then we could only have
+           ReplayGain data from a lower priority source, so discard it */
         if (!(rejectMask_ & MASK_REPLAYGAIN))
             hasMask_ &= ~MASK_REPLAYGAIN;
     }
@@ -758,7 +737,8 @@ std::optional<double> LavcGainCalculator::gain(bool antipeak,
     double volume = exo::exp10((rg + preamp) * 0.05);
 
     // apply peak prevention
-    if (antipeak && has_(MASK_REPLAYGAIN) && has_(MASK_REPLAYGAIN_PEAK))
+    if (antipeak && has_(MASK_REPLAYGAIN) && has_(MASK_REPLAYGAIN_PEAK) &&
+        replayGainPeak_ > 0)
         volume = std::min(volume, 1.0 / replayGainPeak_);
 
     return volume;
@@ -776,7 +756,8 @@ void LavcDecodeJob::calculateGain_() {
             gain_.f = volume;
         } else {
             gain_.i = static_cast<decltype(gain_.i)>(
-                0.5 + volume * std::exp2(REPLAYGAIN_FRAC_BITS));
+                0.5 + volume * (static_cast<decltype(gain_.i)>(1)
+                                << REPLAYGAIN_FRAC_BITS));
         }
     } else {
         params_.applyReplayGain = false;
@@ -852,6 +833,46 @@ int LavcDecodeJob::processFrame_(std::shared_ptr<exo::PcmSplitter>& sink,
 }
 #endif // USE_LIBAVFILTER
 
+int LavcDecodeJob::decodeFrames_(std::shared_ptr<exo::PcmSplitter>& sink,
+                                 bool flush) {
+    int ret;
+    auto codecContext = codecContext_.get();
+    auto frame = frame_.get();
+
+    while ((ret = avcodec_receive_frame(codecContext, frame)) >= 0) {
+#if USE_LIBAVFILTER
+        if (EXO_UNLIKELY((ret = av_buffersrc_add_frame_flags(
+                              bufferSourceContext_, frame,
+                              flush ? (AV_BUFFERSRC_FLAG_PUSH |
+                                       AV_BUFFERSRC_FLAG_KEEP_REF)
+                                    : AV_BUFFERSRC_FLAG_KEEP_REF)) < 0)) {
+            EXO_LAVC_ERROR("av_buffersrc_add_frame_flags", ret);
+            av_frame_unref(frame);
+            return ret;
+        }
+
+        ret = filterFrames_(sink, flush);
+#else
+        // hack <https://stackoverflow.com/q/77502983>
+        if (frame->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC &&
+            frame->ch_layout.nb_channels <= 2) {
+            av_channel_layout_default(&frame->ch_layout,
+                                      frame->ch_layout.nb_channels);
+        }
+
+        ret = processFrame_(sink, frame);
+#endif
+
+        av_frame_unref(frame);
+        if (EXO_UNLIKELY(ret < 0))
+            return ret;
+    }
+
+    if (EXO_UNLIKELY(ret != AVERROR(EAGAIN) && ret != AVERROR_EOF))
+        EXO_LAVC_ERROR("avcodec_receive_frame", ret);
+    return ret;
+}
+
 void LavcDecodeJob::flush_(std::shared_ptr<exo::PcmSplitter>& sink) {
 #if USE_LIBAVFILTER
     filterFrames_(sink, true);
@@ -860,6 +881,8 @@ void LavcDecodeJob::flush_(std::shared_ptr<exo::PcmSplitter>& sink) {
 #endif
 }
 
+/** libavformat changes some of these, change them back to how
+    Vorbis files normally name these fields */
 static exo::CaseInsensitiveMap<std::string> normalizedVorbisCommentKeys = {
     {"album_artist", "ALBUMARTIST"},
     {"track", "TRACKNUMBER"},
@@ -931,6 +954,7 @@ void LavcDecodeJob::run(std::shared_ptr<exo::PcmSplitter> sink) {
     auto formatContext = formatContext_.get();
     auto codecContext = codecContext_.get();
     auto packet = packet_.get();
+
     while ((ret = av_read_frame(formatContext, packet) >= 0) &&
            EXO_LIKELY(exo::shouldRun())) {
         if (packet_->stream_index == streamIndex_) {
@@ -946,6 +970,7 @@ void LavcDecodeJob::run(std::shared_ptr<exo::PcmSplitter> sink) {
         if (EXO_UNLIKELY(ret != AVERROR(EAGAIN)))
             break;
     }
+
     if (EXO_UNLIKELY(ret < 0 && ret != AVERROR_EOF))
         EXO_LAVC_ERROR("av_read_frame", ret);
 

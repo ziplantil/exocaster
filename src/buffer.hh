@@ -265,7 +265,7 @@ template <typename T> class RingBuffer {
         return {std::move(value)};
     }
 
-    /** Skips elements in the buffer.. Returns the number of elements
+    /** Skips elements in the buffer. Returns the number of elements
         skipped. This is blocking until the given number of elements have been
         skipped. It may return early and return less than requested only
         if the buffer is closed. */

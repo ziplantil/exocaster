@@ -39,9 +39,11 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
+/** A UUID (universally unique identifier), consisting of 128 bits of data. */
 struct UUID {
     std::array<exo::byte, 16> data;
 
+    /** Converts this UUID to a string using the standard format. */
     inline std::string str() const {
         char buf[] = "00000000-0000-0000-0000-000000000000";
         std::snprintf(buf, sizeof(buf),
@@ -53,6 +55,7 @@ struct UUID {
         return std::string(buf);
     }
 
+    /** Generates a version 7 UUID using the given randomizer. */
     template <typename R> static UUID uuid7(R& randomizer) {
         auto t = std::chrono::system_clock::now();
         auto x = std::chrono::duration_cast<
@@ -73,6 +76,7 @@ struct UUID {
         return UUID{.data = b};
     }
 
+    /** Generates a version 7 UUID. */
     static UUID uuid7() {
         std::random_device dev;
         return uuid7(dev);

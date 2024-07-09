@@ -54,6 +54,8 @@ T engineSeed_() {
     return static_cast<T>(v);
 }
 
+/** A class that generates random floating-point numbers
+    within the range [0, 1). */
 template <typename F = float, typename T = std::default_random_engine>
 class RandomFloatGenerator {
     T engine_;

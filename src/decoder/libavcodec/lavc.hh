@@ -32,6 +32,7 @@ DEALINGS IN THE SOFTWARE.
 #include "decoder/decoder.hh"
 #include "slot.hh"
 
+/** Whether to use libavfilter for ReplayGain application and resampling */
 #define USE_LIBAVFILTER 1
 
 extern "C" {
@@ -73,11 +74,20 @@ class LavcGainCalculator {
     bool accepts_(unsigned short mask) noexcept;
 
   public:
+    /** Accept new values. Newer values take priority over older ones. */
     void accept() noexcept;
+
+    /** Record a ReplayGain gain value. */
     void replayGain(float value) noexcept;
+
+    /** Record a ReplayGain peak value. */
     void replayGainPeak(float value) noexcept;
+
+    /** Record a EBU R128 gain value. */
     void r128Gain(float value) noexcept;
 
+    /** Compute the final volume.
+        Returns an empty value if no ReplayGain or R128 data was given. */
     std::optional<double> gain(bool antipeak, double preamp) const noexcept;
 };
 #endif

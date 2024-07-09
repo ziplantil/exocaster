@@ -35,6 +35,7 @@ DEALINGS IN THE SOFTWARE.
 
 #include "queue/queue.hh"
 #include "refcount.hh"
+#include "slot.hh"
 #include "util.hh"
 
 extern "C" {
@@ -43,11 +44,12 @@ extern "C" {
 
 namespace exo {
 
-struct CURLDeleter {
-    void operator()(CURL* curl) const noexcept;
+struct CURL : PointerSlot<CURL, ::CURL> {
+    using PointerSlot::PointerSlot;
+    CURL(::CURL* p);
+    ~CURL() noexcept;
+    EXO_DEFAULT_NONCOPYABLE(CURL);
 };
-
-using CURLPtr = std::unique_ptr<CURL, CURLDeleter>;
 
 struct CurlGlobal : exo::GlobalLibrary<exo::CurlGlobal> {
     inline void init() {

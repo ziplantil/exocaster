@@ -39,7 +39,6 @@ extern "C" {
 namespace exo {
 
 void PortAudioGlobal::init() {
-
     PaError err = Pa_Initialize();
     if (err != paNoError) {
         EXO_LOG("PortAudio failed to initialize (%d): %s", err,
@@ -59,12 +58,15 @@ static int streamCallback(const void* input, void* output,
                           unsigned long frameCount,
                           const PaStreamCallbackTimeInfo* timeInfo,
                           PaStreamCallbackFlags statusFlags, void* userData) {
+    // forward to PortAudioBroca through userData pointer
     return reinterpret_cast<PortAudioBroca*>(userData)->streamCallback(
         input, output, frameCount, timeInfo, statusFlags);
 }
 }
 
-template <typename T> static T roundUpToTwo_(T value) {
+/** Returns the smallest power of two greater than or equal to the passed
+    unsigned integral value. */
+template <std::unsigned_integral T> static T roundUpToTwo_(T value) {
     --value;
     for (unsigned shiftCount = 1; shiftCount < sizeof(T) * CHAR_BIT;
          shiftCount <<= 1)
