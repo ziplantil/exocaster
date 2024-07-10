@@ -32,10 +32,8 @@ DEALINGS IN THE SOFTWARE.
 #include <cmath>
 #include <concepts>
 #include <exception>
-#include <locale>
 #include <new>
 #include <span>
-#include <sstream>
 #include <stdexcept>
 #include <utility>
 
@@ -43,6 +41,8 @@ DEALINGS IN THE SOFTWARE.
 #include <cstdio>
 #else
 #include <limits>
+#include <locale>
+#include <sstream>
 #include <type_traits>
 #endif
 
@@ -54,10 +54,6 @@ DEALINGS IN THE SOFTWARE.
 #include "pcmtypes.hh"
 #include "server.hh"
 #include "util.hh"
-
-#if !EXO_USE_LIBAVFILTER
-#include "pcmconvert.hh"
-#endif
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -367,7 +363,7 @@ void LavcDecodeJob::init() {
     if (params_.applyReplayGain)
         calculateGain_();
 
-    SwrContext* swrContext;
+    SwrContext* swrContext = nullptr;
     if (EXO_UNLIKELY(
             (ret = swr_alloc_set_opts2(
                  &swrContext, &outChLayout_, outSampleFmt_, pcmFormat_.rate,
@@ -392,12 +388,12 @@ template <std::floating_point T> static constexpr T convertR128ToRG(T r128) {
     return r128 + 5.0;
 }
 
-#if EXO_USE_LIBAVFILTER
-
 static bool alwaysApplyR128Fix(AVCodecContext* codec) {
     // Opus has gain normalized to EBU R128
     return codec->codec_id == AV_CODEC_ID_OPUS;
 }
+
+#if EXO_USE_LIBAVFILTER
 
 struct LavcAVFilterInOut : PointerSlot<LavcAVFilterInOut, AVFilterInOut> {
     LavcAVFilterInOut() : PointerSlot(avfilter_inout_alloc()) {}
@@ -916,11 +912,13 @@ static exo::CaseInsensitiveMap<std::string> normalizedVorbisCommentKeys = {
 void LavcDecodeJob::readMetadata_(const AVDictionary* metadict) {
     const AVDictionaryEntry* tag = nullptr;
 #if !EXO_USE_LIBAVFILTER
+    if (codecContext_ && alwaysApplyR128Fix(codecContext_.get()))
+        gainCalculator_.r128Gain(0.0f);
     gainCalculator_.accept();
 #endif
 
-#if LIBAVUTIL_VERSION_MAJOR > 57 || (LIBAVUTIL_VERSION_MAJOR == 57 &&          \
-                                     LIBAVUTIL_VERSION_MINOR >= 42)
+#if LIBAVUTIL_VERSION_MAJOR > 57 ||                                            \
+    (LIBAVUTIL_VERSION_MAJOR == 57 && LIBAVUTIL_VERSION_MINOR >= 42)
     while ((tag = av_dict_iterate(metadict, tag))) {
 #else
     while ((tag = av_dict_get(metadict, "", tag, AV_DICT_IGNORE_SUFFIX))) {

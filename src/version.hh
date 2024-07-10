@@ -31,7 +31,7 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
-#define EXO_VERSION "0.5.3"
+#define EXO_VERSION "0.5.4"
 
 } // namespace exo
 
