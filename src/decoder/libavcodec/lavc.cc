@@ -919,7 +919,12 @@ void LavcDecodeJob::readMetadata_(const AVDictionary* metadict) {
     gainCalculator_.accept();
 #endif
 
+#if LIBAVUTIL_VERSION_MAJOR > 57 || (LIBAVUTIL_VERSION_MAJOR == 57 &&          \
+                                     LIBAVUTIL_VERSION_MINOR >= 42)
     while ((tag = av_dict_iterate(metadict, tag))) {
+#else
+    while ((tag = av_dict_get(metadict, "", tag, AV_DICT_IGNORE_SUFFIX))) {
+#endif
         if (!exo::strnicmp(tag->key, "REPLAYGAIN_", 11)) {
             // do not forward ReplayGain tags
 #if EXO_USE_LIBAVFILTER
