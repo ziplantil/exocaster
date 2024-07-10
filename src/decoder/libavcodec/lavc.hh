@@ -29,22 +29,45 @@ DEALINGS IN THE SOFTWARE.
 #ifndef DECODER_LIBAVCODEC_LAVC_HH
 #define DECODER_LIBAVCODEC_LAVC_HH
 
-#include "decoder/decoder.hh"
-#include "slot.hh"
-
+#ifndef EXO_USE_LIBAVFILTER
 /** Whether to use libavfilter for ReplayGain application and resampling */
-#define USE_LIBAVFILTER 1
+#define EXO_USE_LIBAVFILTER 1
+#endif
+
+#include <memory>
+#include <optional>
+#include <string>
+#if !EXO_USE_LIBAVFILTER
+#include <cstddef>
+#include <cstdint>
+#endif
+
+#include "config.hh"
+#include "decoder/decoder.hh"
+#include "metadata.hh"
+#include "slot.hh"
+#include "util.hh"
+#if !EXO_USE_LIBAVFILTER
+#include "types.hh"
+#endif
 
 extern "C" {
 #include <libavcodec/avcodec.h>
+#include <libavcodec/codec.h>
+#include <libavcodec/packet.h>
 #include <libavformat/avformat.h>
-#include <libavformat/avio.h>
-#if USE_LIBAVFILTER
+#if EXO_USE_LIBAVFILTER
+#include <libavfilter/avfilter.h>
 #include <libavfilter/buffersink.h>
 #include <libavfilter/buffersrc.h>
+#include <libavformat/avio.h>
 #else
 #include <libswresample/swresample.h>
 #endif
+#include <libavutil/channel_layout.h>
+#include <libavutil/dict.h>
+#include <libavutil/frame.h>
+#include <libavutil/samplefmt.h>
 }
 
 namespace exo {
@@ -57,7 +80,7 @@ struct LavcDecodeParams {
     bool normalizeVorbisComment;
 };
 
-#if !USE_LIBAVFILTER
+#if !EXO_USE_LIBAVFILTER
 union LavcGain {
     std::int_least32_t i;
     double f;
@@ -120,7 +143,7 @@ struct LavCodecContext : public PointerSlot<LavCodecContext, AVCodecContext> {
     EXO_DEFAULT_NONCOPYABLE(LavCodecContext)
 };
 
-#if USE_LIBAVFILTER
+#if EXO_USE_LIBAVFILTER
 
 struct LavFilterContext
     : public PointerSlot<LavFilterContext, AVFilterContext> {
@@ -137,7 +160,7 @@ struct LavFilterGraph : public PointerSlot<LavFilterGraph, AVFilterGraph> {
     EXO_DEFAULT_NONCOPYABLE(LavFilterGraph)
 };
 
-#else /* USE_LIBAVFILTER */
+#else /* EXO_USE_LIBAVFILTER */
 
 struct LavSwrContext : public PointerSlot<LavSwrContext, SwrContext> {
     using PointerSlot::PointerSlot;
@@ -146,7 +169,7 @@ struct LavSwrContext : public PointerSlot<LavSwrContext, SwrContext> {
     EXO_DEFAULT_NONCOPYABLE(LavSwrContext)
 };
 
-#endif /* USE_LIBAVFILTER */
+#endif /* EXO_USE_LIBAVFILTER */
 
 class LavcDecodeJob : public exo::BaseDecodeJob {
     std::string filePath_;
@@ -156,7 +179,7 @@ class LavcDecodeJob : public exo::BaseDecodeJob {
     exo::LavFrame frame_;
     exo::LavFormatInput formatContext_{nullptr};
     exo::LavCodecContext codecContext_{nullptr};
-#if USE_LIBAVFILTER
+#if EXO_USE_LIBAVFILTER
     AVFilterContext* bufferSourceContext_{nullptr};
     AVFilterContext* filterSinkContext_{nullptr};
     exo::LavFilterGraph filterGraph_{nullptr};
@@ -177,7 +200,7 @@ class LavcDecodeJob : public exo::BaseDecodeJob {
     void readMetadata_(const AVDictionary* metadict);
     int decodeFrames_(std::shared_ptr<exo::PcmSplitter>& sink,
                       bool flush = false);
-#if USE_LIBAVFILTER
+#if EXO_USE_LIBAVFILTER
     bool setupFilter_();
     int filterFrames_(std::shared_ptr<exo::PcmSplitter>& sink,
                       bool flush = false);

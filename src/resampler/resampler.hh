@@ -30,8 +30,13 @@ DEALINGS IN THE SOFTWARE.
 #define RESAMPLER_RESAMPLER_HH
 
 #include <algorithm>
+#include <cstddef>
+#include <iosfwd>
 #include <memory>
 #include <span>
+#include <stdexcept>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "config.hh"

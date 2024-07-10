@@ -29,11 +29,15 @@ DEALINGS IN THE SOFTWARE.
 #ifndef BROCA_SHOUT_SHOUT_HH
 #define BROCA_SHOUT_SHOUT_HH
 
+#include <memory>
+
 #include "broca/broca.hh"
+#include "config.hh"
 #include "fclock.hh"
 #include "packet.hh"
 #include "refcount.hh"
 #include "slot.hh"
+#include "streamformat.hh"
 #include "util.hh"
 
 extern "C" {

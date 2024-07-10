@@ -31,6 +31,7 @@ DEALINGS IN THE SOFTWARE.
 
 #include <cstring>
 #include <iostream>
+#include <string>
 
 namespace exo {
 

@@ -26,16 +26,27 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
-#include "broca/shout/shout.hh"
+#include <chrono>
+#include <cstddef>
+#include <exception>
+#include <new>
+#include <optional>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <thread>
+#include <variant>
+
 #include "broca/broca.hh"
+#include "broca/shout/shout.hh"
 #include "config.hh"
 #include "log.hh"
 #include "metadata.hh"
 #include "packet.hh"
 #include "server.hh"
 #include "streamformat.hh"
+#include "types.hh"
 #include "util.hh"
-#include <stdexcept>
 
 extern "C" {
 #include <shout/shout.h>

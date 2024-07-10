@@ -29,8 +29,9 @@ DEALINGS IN THE SOFTWARE.
 #ifndef FCLOCK_HH
 #define FCLOCK_HH
 
-#include "log.hh"
 #include <chrono>
+#include <cstdint>
+#include <ratio>
 #include <thread>
 #include <utility>
 

@@ -29,14 +29,16 @@ DEALINGS IN THE SOFTWARE.
 #ifndef METADATA_HH
 #define METADATA_HH
 
-#include "packet.hh"
+#include <algorithm>
 #include <bit>
+#include <cstddef>
 #include <locale>
-#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+#include "packet.hh"
 
 namespace exo {
 

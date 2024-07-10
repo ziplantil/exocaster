@@ -30,7 +30,9 @@ DEALINGS IN THE SOFTWARE.
 #define QUEUE_FILE_HH
 
 #include <fstream>
+#include <string>
 
+#include "config.hh"
 #include "queue/queue.hh"
 
 namespace exo {

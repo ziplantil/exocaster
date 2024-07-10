@@ -26,11 +26,19 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
+#include <algorithm>
 #include <array>
+#include <bit>
+#include <cstring>
+#include <exception>
 #include <initializer_list>
 #include <memory>
+#include <new>
 #include <random>
 #include <stdexcept>
+#include <string>
+#include <string_view>
+#include <utility>
 
 #include "debug.hh"
 #include "encoder/libopus/oggopus.hh"
@@ -38,6 +46,7 @@ DEALINGS IN THE SOFTWARE.
 #include "pcmconvert.hh"
 #include "pcmtypes.hh"
 #include "resampler/resampler.hh"
+#include "resampler/types.hh"
 #include "server.hh"
 #include "streamformat.hh"
 #include "util.hh"
@@ -46,6 +55,7 @@ extern "C" {
 #include <ogg/ogg.h>
 #include <opus/opus.h>
 #include <opus/opus_defines.h>
+#include <opus/opus_types.h>
 }
 
 namespace exo {

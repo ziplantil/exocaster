@@ -29,7 +29,17 @@ DEALINGS IN THE SOFTWARE.
 #ifndef ENCODER_PCM_HH
 #define ENCODER_PCM_HH
 
+#include <cstddef>
+#include <memory>
+#include <span>
+
+#include "config.hh"
 #include "encoder/encoder.hh"
+#include "metadata.hh"
+#include "pcmtypes.hh"
+#include "resampler/resampler.hh"
+#include "streamformat.hh"
+#include "types.hh"
 
 namespace exo {
 

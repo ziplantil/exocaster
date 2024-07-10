@@ -26,11 +26,19 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
+#include <cerrno>
+#include <cstddef>
+#include <optional>
+#include <string>
+#include <system_error>
+
 #include "broca/file.hh"
 #include "config.hh"
 #include "log.hh"
 #include "packet.hh"
 #include "server.hh"
+#include "types.hh"
+#include "util.hh"
 
 namespace exo {
 

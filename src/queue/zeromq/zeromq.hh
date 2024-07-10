@@ -29,11 +29,14 @@ DEALINGS IN THE SOFTWARE.
 #ifndef QUEUE_ZEROMQ_ZEROMQ_HH
 #define QUEUE_ZEROMQ_ZEROMQ_HH
 
+#include <optional>
 #include <sstream>
+#include <string>
+
+#include "config.hh"
+#include "queue/queue.hh"
 
 #include <zmq.hpp>
-
-#include "queue/queue.hh"
 
 namespace exo {
 

@@ -26,8 +26,13 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
+#include <chrono>
+#include <cstddef>
+#include <exception>
+#include <new>
 #include <stdexcept>
 #include <thread>
+#include <utility>
 
 #include "log.hh"
 #include "queue/curl/curl.hh"

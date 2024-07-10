@@ -26,8 +26,13 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
-#include "encoder/lame/mp3.hh"
+#include <algorithm>
+#include <array>
+#include <new>
+#include <stdexcept>
+
 #include "config.hh"
+#include "encoder/lame/mp3.hh"
 #include "log.hh"
 #include "packet.hh"
 #include "pcmconvert.hh"

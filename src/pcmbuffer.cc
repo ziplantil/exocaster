@@ -26,13 +26,17 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
+#include <algorithm>
 #include <chrono>
+#include <ratio>
 #include <thread>
 #include <utility>
 
 #include "log.hh"
 #include "pcmbuffer.hh"
+#include "publisher.hh"
 #include "server.hh"
+#include "serverconfig.hh"
 
 namespace exo {
 

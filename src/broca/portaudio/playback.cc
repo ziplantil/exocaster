@@ -26,6 +26,13 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
+#include <climits>
+#include <concepts>
+#include <cstring>
+#include <new>
+#include <stdexcept>
+#include <variant>
+
 #include "broca/portaudio/playback.hh"
 #include "log.hh"
 #include "pcmtypes.hh"

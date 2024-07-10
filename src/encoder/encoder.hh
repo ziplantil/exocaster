@@ -29,14 +29,23 @@ DEALINGS IN THE SOFTWARE.
 #ifndef ENCODER_ENCODER_HH
 #define ENCODER_ENCODER_HH
 
+#include <cstddef>
 #include <iostream>
 #include <memory>
+#include <span>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 #include "config.hh"
+#include "metadata.hh"
 #include "packet.hh"
 #include "pcmbuffer.hh"
+#include "pcmtypes.hh"
 #include "resampler/resampler.hh"
 #include "streamformat.hh"
+#include "types.hh"
+#include "util.hh"
 
 namespace exo {
 

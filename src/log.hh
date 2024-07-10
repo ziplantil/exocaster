@@ -33,7 +33,6 @@ DEALINGS IN THE SOFTWARE.
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
-#include <ctime>
 #include <mutex>
 
 namespace exo {

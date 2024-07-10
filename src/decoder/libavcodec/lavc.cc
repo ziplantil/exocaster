@@ -26,11 +26,23 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
+#include <algorithm>
+#include <cerrno>
+#include <climits>
 #include <cmath>
-#if !USE_LIBAVFILTER
+#include <concepts>
+#include <exception>
+#include <locale>
+#include <new>
+#include <span>
+#include <sstream>
+#include <stdexcept>
+#include <utility>
+
+#if !EXO_USE_LIBAVFILTER
 #include <cstdio>
 #else
-#include <sstream>
+#include <limits>
 #include <type_traits>
 #endif
 
@@ -38,8 +50,14 @@ DEALINGS IN THE SOFTWARE.
 #include "decoder/libavcodec/lavc.hh"
 #include "log.hh"
 #include "metadata.hh"
+#include "pcmbuffer.hh"
 #include "pcmtypes.hh"
+#include "server.hh"
 #include "util.hh"
+
+#if !EXO_USE_LIBAVFILTER
+#include "pcmconvert.hh"
+#endif
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -47,13 +65,18 @@ extern "C" {
 #include <libavcodec/packet.h>
 #include <libavformat/avformat.h>
 #include <libavformat/avio.h>
+#include <libavutil/avutil.h>
+#include <libavutil/dict.h>
+#include <libavutil/error.h>
+#include <libavutil/mem.h>
 #include <libavutil/opt.h>
 #include <libavutil/samplefmt.h>
-#include <libswresample/swresample.h>
-#if USE_LIBAVFILTER
+#if EXO_USE_LIBAVFILTER
 #include <libavfilter/avfilter.h>
 #include <libavfilter/buffersink.h>
 #include <libavfilter/buffersrc.h>
+#else
+#include <libswresample/swresample.h>
 #endif
 }
 
@@ -116,7 +139,7 @@ LavCodecContext::~LavCodecContext() noexcept {
     }
 }
 
-#if USE_LIBAVFILTER
+#if EXO_USE_LIBAVFILTER
 
 LavFilterContext::LavFilterContext(AVFilterContext* p) : PointerSlot(p) {
     if (!has())
@@ -140,7 +163,7 @@ LavFilterGraph::~LavFilterGraph() noexcept {
     }
 }
 
-#else /* USE_LIBAVFILTER */
+#else /* EXO_USE_LIBAVFILTER */
 
 LavSwrContext::LavSwrContext(SwrContext* p) : PointerSlot(p) {
     if (!has())
@@ -154,7 +177,7 @@ LavSwrContext::~LavSwrContext() noexcept {
     }
 }
 
-#endif /* USE_LIBAVFILTER */
+#endif /* EXO_USE_LIBAVFILTER */
 
 LavcDecoder::LavcDecoder(const exo::ConfigObject& config,
                          exo::PcmFormat pcmFormat)
@@ -243,7 +266,7 @@ LavcDecodeJob::LavcDecodeJob(std::shared_ptr<exo::PcmSplitter> sink,
                                  "unsupported PCM sample format");
     }
 
-#if !USE_LIBAVFILTER
+#if !EXO_USE_LIBAVFILTER
     int ret;
     bufferFrameCount_ = pcmFormat_.rate / 4; // 250 ms
     ret = av_samples_alloc(&buffer_, nullptr, outChLayout_.nb_channels,
@@ -337,7 +360,7 @@ void LavcDecodeJob::init() {
                                   codecContext->ch_layout.nb_channels);
     }
 
-#if USE_LIBAVFILTER
+#if EXO_USE_LIBAVFILTER
     if (!setupFilter_())
         return;
 #else
@@ -369,7 +392,7 @@ template <std::floating_point T> static constexpr T convertR128ToRG(T r128) {
     return r128 + 5.0;
 }
 
-#if USE_LIBAVFILTER
+#if EXO_USE_LIBAVFILTER
 
 static bool alwaysApplyR128Fix(AVCodecContext* codec) {
     // Opus has gain normalized to EBU R128
@@ -569,7 +592,7 @@ int LavcDecodeJob::filterFrames_(std::shared_ptr<exo::PcmSplitter>& sink,
     return 0;
 }
 
-#else // !USE_LIBAVFILTER
+#else // !EXO_USE_LIBAVFILTER
 
 // number of fractional bits in LavcGain::i
 static constexpr std::size_t REPLAYGAIN_FRAC_BITS = 12;
@@ -831,7 +854,7 @@ int LavcDecodeJob::processFrame_(std::shared_ptr<exo::PcmSplitter>& sink,
     }
     return 0;
 }
-#endif // USE_LIBAVFILTER
+#endif // EXO_USE_LIBAVFILTER
 
 int LavcDecodeJob::decodeFrames_(std::shared_ptr<exo::PcmSplitter>& sink,
                                  bool flush) {
@@ -840,7 +863,7 @@ int LavcDecodeJob::decodeFrames_(std::shared_ptr<exo::PcmSplitter>& sink,
     auto frame = frame_.get();
 
     while ((ret = avcodec_receive_frame(codecContext, frame)) >= 0) {
-#if USE_LIBAVFILTER
+#if EXO_USE_LIBAVFILTER
         if (EXO_UNLIKELY((ret = av_buffersrc_add_frame_flags(
                               bufferSourceContext_, frame,
                               flush ? (AV_BUFFERSRC_FLAG_PUSH |
@@ -874,7 +897,7 @@ int LavcDecodeJob::decodeFrames_(std::shared_ptr<exo::PcmSplitter>& sink,
 }
 
 void LavcDecodeJob::flush_(std::shared_ptr<exo::PcmSplitter>& sink) {
-#if USE_LIBAVFILTER
+#if EXO_USE_LIBAVFILTER
     filterFrames_(sink, true);
 #else
     processFrame_(sink, nullptr);
@@ -892,14 +915,14 @@ static exo::CaseInsensitiveMap<std::string> normalizedVorbisCommentKeys = {
 
 void LavcDecodeJob::readMetadata_(const AVDictionary* metadict) {
     const AVDictionaryEntry* tag = nullptr;
-#if !USE_LIBAVFILTER
+#if !EXO_USE_LIBAVFILTER
     gainCalculator_.accept();
 #endif
 
     while ((tag = av_dict_iterate(metadict, tag))) {
         if (!exo::strnicmp(tag->key, "REPLAYGAIN_", 11)) {
             // do not forward ReplayGain tags
-#if USE_LIBAVFILTER
+#if EXO_USE_LIBAVFILTER
             hasReplayGain_ = true;
 #else
             if (params_.applyReplayGain) {
@@ -919,7 +942,7 @@ void LavcDecodeJob::readMetadata_(const AVDictionary* metadict) {
             }
 #endif
         } else if (!exo::stricmp(tag->key, "R128_TRACK_GAIN")) {
-#if USE_LIBAVFILTER
+#if EXO_USE_LIBAVFILTER
             hasR128Gain_ = true;
 #else
             if (params_.applyReplayGain) {
@@ -980,7 +1003,7 @@ void LavcDecodeJob::run(std::shared_ptr<exo::PcmSplitter> sink) {
     decodeFrames_(sink, true);
 
     // flush resampler
-#if USE_LIBAVFILTER
+#if EXO_USE_LIBAVFILTER
     if (av_buffersrc_add_frame_flags(bufferSourceContext_, nullptr, 0) < 0)
         EXO_LAVC_ERROR("av_buffersrc_add_frame_flags(EOF)", ret);
 #else
@@ -992,7 +1015,7 @@ void LavcDecodeJob::run(std::shared_ptr<exo::PcmSplitter> sink) {
 }
 
 LavcDecodeJob::~LavcDecodeJob() noexcept {
-#if !USE_LIBAVFILTER
+#if !EXO_USE_LIBAVFILTER
     if (EXO_LIKELY(buffer_))
         av_freep(&buffer_);
 #endif

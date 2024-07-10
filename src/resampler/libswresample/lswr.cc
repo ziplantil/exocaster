@@ -26,6 +26,7 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
+#include <cstdint>
 #include <stdexcept>
 
 #include "debug.hh"
@@ -33,7 +34,10 @@ DEALINGS IN THE SOFTWARE.
 #include "resampler/libswresample/lswr.hh"
 
 extern "C" {
+#include <libavutil/channel_layout.h>
+#include <libavutil/error.h>
 #include <libavutil/opt.h>
+#include <libavutil/samplefmt.h>
 #include <libswresample/swresample.h>
 }
 
@@ -78,7 +82,7 @@ SwrContext::~SwrContext() noexcept {
 
 LswrResampler::LswrResampler(exo::SampleRate outRate, exo::SampleRate inRate,
                              const exo::ConfigObject& config)
-    : swr_(inRate, outRate, 1), ratio_(static_cast<double>(outRate) / inRate) {}
+    : swr_(inRate, outRate, 1) {}
 
 exo::ResamplerReturn LswrResampler::resample(std::span<float> out,
                                              std::span<const float> in) {

@@ -30,7 +30,9 @@ DEALINGS IN THE SOFTWARE.
 #define SERVER_CONFIG_HH
 
 #include <cstdlib>
+#include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "config.hh"
 #include "pcmtypes.hh"

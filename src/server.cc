@@ -26,20 +26,36 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
+#include <cerrno>
+#include <chrono>
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <fstream>
 #include <iostream>
+#include <memory>
+#include <optional>
+#include <semaphore>
+#include <string>
 #include <thread>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
+#include "broca/broca.hh"
+#include "config.hh"
 #include "decoder/decoder.hh"
 #include "encoder/encoder.hh"
+#include "jobqueue.hh"
 #include "log.hh"
 #include "pcmbuffer.hh"
+#include "pcmtypes.hh"
 #include "publisher.hh"
 #include "queue/commandqueue.hh"
+#include "queue/queue.hh"
 #include "registry.hh"
+#include "resampler/resampler.hh"
 #include "server.hh"
 #include "serverconfig.hh"
 #include "uuid.hh"

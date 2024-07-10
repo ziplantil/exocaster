@@ -25,8 +25,9 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ***/
-
+#include <exception>
 #include <iostream>
+#include <unordered_map>
 
 #include "log.hh"
 #include "pcmtypes.hh"

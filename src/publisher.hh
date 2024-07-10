@@ -29,8 +29,10 @@ DEALINGS IN THE SOFTWARE.
 #ifndef PUBLISHER_HH
 #define PUBLISHER_HH
 
+#include <cstddef>
 #include <memory>
 #include <thread>
+#include <utility>
 #include <variant>
 #include <vector>
 

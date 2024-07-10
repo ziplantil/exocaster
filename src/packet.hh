@@ -29,8 +29,12 @@ DEALINGS IN THE SOFTWARE.
 #ifndef PACKET_HH
 #define PACKET_HH
 
+#include <cstddef>
 #include <cstring>
 #include <optional>
+#include <span>
+#include <type_traits>
+#include <utility>
 
 #include "buffer.hh"
 #include "types.hh"

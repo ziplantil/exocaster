@@ -30,9 +30,11 @@ DEALINGS IN THE SOFTWARE.
 #define QUEUE_CURL_CURL_HH
 
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 
+#include "config.hh"
 #include "queue/queue.hh"
 #include "refcount.hh"
 #include "slot.hh"

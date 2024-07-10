@@ -32,6 +32,7 @@ DEALINGS IN THE SOFTWARE.
 #include <iostream>
 #include <memory>
 #include <stdexcept>
+#include <string>
 
 #include "config.hh"
 #include "util.hh"

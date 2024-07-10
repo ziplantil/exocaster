@@ -29,12 +29,25 @@ DEALINGS IN THE SOFTWARE.
 #ifndef ENCODER_LIBVORBIS_OGGVORBIS_HH
 #define ENCODER_LIBVORBIS_OGGVORBIS_HH
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <span>
+
+#include "config.hh"
 #include "encoder/encoder.hh"
 #include "encoder/ogg/ogg.hh"
+#include "metadata.hh"
+#include "pcmbuffer.hh"
+#include "resampler/resampler.hh"
 #include "slot.hh"
+#include "streamformat.hh"
+#include "types.hh"
 #include "util.hh"
 
 extern "C" {
+#include <ogg/ogg.h>
+#include <vorbis/codec.h>
 #include <vorbis/vorbisenc.h>
 }
 

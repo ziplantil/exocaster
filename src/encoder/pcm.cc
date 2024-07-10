@@ -28,6 +28,7 @@ DEALINGS IN THE SOFTWARE.
 
 #include "encoder/pcm.hh"
 #include "log.hh"
+#include "pcmtypes.hh"
 
 #define EXO_DUMP_METADATA 1
 

@@ -26,14 +26,19 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
+#include <algorithm>
 #include <array>
+#include <exception>
 #include <random>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 #include "encoder/libvorbis/oggvorbis.hh"
 #include "log.hh"
 #include "pcmconvert.hh"
 #include "pcmtypes.hh"
+#include "resampler/resampler.hh"
 #include "server.hh"
 #include "streamformat.hh"
 #include "util.hh"

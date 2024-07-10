@@ -3,6 +3,7 @@ build/
 .vscode/
 /.clangd
 /Makefile.inc
+/exocaster
 **/compile_commands.json
 
 # Prerequisites

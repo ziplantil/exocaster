@@ -26,9 +26,12 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
+#include <cstring>
 #include <sstream>
+#include <string_view>
 
 #include "metadata.hh"
+#include "types.hh"
 
 namespace exo {
 

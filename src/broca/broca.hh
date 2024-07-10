@@ -29,13 +29,17 @@ DEALINGS IN THE SOFTWARE.
 #ifndef BROCA_BROCA_HH
 #define BROCA_BROCA_HH
 
+#include <cstddef>
 #include <iostream>
 #include <memory>
 #include <semaphore>
+#include <stdexcept>
+#include <string>
 
 #include "config.hh"
 #include "packet.hh"
 #include "streamformat.hh"
+#include "util.hh"
 
 namespace exo {
 

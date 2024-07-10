@@ -27,12 +27,15 @@ DEALINGS IN THE SOFTWARE.
 ***/
 
 #include <algorithm>
+#include <array>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "encoder/pcm.hh"
 #include "log.hh"
 #include "packet.hh"
+#include "pcmbuffer.hh"
 #include "server.hh"
 
 #include "encoder/encoder.hh"

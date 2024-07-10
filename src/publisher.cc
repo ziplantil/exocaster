@@ -26,9 +26,12 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
+#include <optional>
+#include <ostream>
+
 #include "publisher.hh"
-#include "log.hh"
 #include "server.hh"
+#include "util.hh"
 
 namespace exo {
 

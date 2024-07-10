@@ -29,9 +29,15 @@ DEALINGS IN THE SOFTWARE.
 #ifndef BROCA_PORTAUDIO_PLAYBACK_HH
 #define BROCA_PORTAUDIO_PLAYBACK_HH
 
+#include <cstddef>
+#include <memory>
+
 #include "broca/broca.hh"
+#include "config.hh"
+#include "packet.hh"
 #include "refcount.hh"
 #include "slot.hh"
+#include "streamformat.hh"
 #include "util.hh"
 
 extern "C" {

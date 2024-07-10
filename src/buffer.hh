@@ -32,7 +32,12 @@ DEALINGS IN THE SOFTWARE.
 #include <algorithm>
 #include <chrono>
 #include <condition_variable>
+#include <cstddef>
+#include <memory>
 #include <mutex>
+#include <optional>
+#include <tuple>
+#include <type_traits>
 #include <utility>
 #include <vector>
 

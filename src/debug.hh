@@ -30,6 +30,7 @@ DEALINGS IN THE SOFTWARE.
 #define DEBUG_HH
 
 #include <csignal>
+#include <cstddef>
 #include <cstdlib>
 
 #include "log.hh"

@@ -29,6 +29,11 @@ DEALINGS IN THE SOFTWARE.
 #ifndef DECODER_TESTCARD_HH
 #define DECODER_TESTCARD_HH
 
+#include <cstddef>
+#include <memory>
+#include <optional>
+
+#include "config.hh"
 #include "decoder/decoder.hh"
 
 namespace exo {

@@ -26,9 +26,16 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
-#include "registry.hh"
+#include <new>
+#include <stdexcept>
+#include <utility>
+
 #include "broca/broca.hh"
+#include "decoder/decoder.hh"
 #include "encoder/encoder.hh"
+#include "packet.hh"
+#include "pcmtypes.hh"
+#include "registry.hh"
 #include "resampler/resampler.hh"
 #include "serverconfig.hh"
 

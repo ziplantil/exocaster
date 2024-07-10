@@ -28,6 +28,7 @@ DEALINGS IN THE SOFTWARE.
 
 #include <algorithm>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "decoder/decoder.hh"

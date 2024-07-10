@@ -30,7 +30,10 @@ DEALINGS IN THE SOFTWARE.
 #define QUEUE_COMMANDQUEUE_HH
 
 #include <memory>
+#include <string>
+#include <utility>
 
+#include "config.hh"
 #include "queue/queue.hh"
 
 namespace exo {

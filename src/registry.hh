@@ -29,10 +29,16 @@ DEALINGS IN THE SOFTWARE.
 #ifndef REGISTRY_HH
 #define REGISTRY_HH
 
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
 #include "broca/broca.hh"
 #include "decoder/decoder.hh"
 #include "encoder/encoder.hh"
 #include "pcmbuffer.hh"
+#include "publisher.hh"
 #include "queue/queue.hh"
 #include "serverconfig.hh"
 

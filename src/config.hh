@@ -33,6 +33,7 @@ DEALINGS IN THE SOFTWARE.
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
+#include <string>
 #include <type_traits>
 
 #include <nlohmann/json.hpp>

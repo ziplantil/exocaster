@@ -26,15 +26,20 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
+#include <algorithm>
 #include <cmath>
 #include <numbers>
+#include <span>
+#include <utility>
 
 #include "config.hh"
 #include "decoder/testcard.hh"
 #include "log.hh"
+#include "pcmbuffer.hh"
 #include "pcmconvert.hh"
-#include "pcmtypes.hh"
 #include "server.hh"
+#include "types.hh"
+#include "util.hh"
 
 namespace exo {
 

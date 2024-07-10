@@ -29,7 +29,7 @@ DEALINGS IN THE SOFTWARE.
 #ifndef REFCOUNT_HH
 #define REFCOUNT_HH
 
-#include <cstdlib>
+#include <cstddef>
 #include <mutex>
 
 #include "util.hh"

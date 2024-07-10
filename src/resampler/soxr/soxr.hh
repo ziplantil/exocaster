@@ -29,6 +29,9 @@ DEALINGS IN THE SOFTWARE.
 #ifndef RESAMPLER_SOXR_SOXR_HH
 #define RESAMPLER_SOXR_SOXR_HH
 
+#include <cstddef>
+#include <span>
+
 #include "config.hh"
 #include "resampler/types.hh"
 #include "slot.hh"

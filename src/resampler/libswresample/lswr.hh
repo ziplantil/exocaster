@@ -29,6 +29,9 @@ DEALINGS IN THE SOFTWARE.
 #ifndef RESAMPLER_LIBSWRESAMPLE_LSWR_HH
 #define RESAMPLER_LIBSWRESAMPLE_LSWR_HH
 
+#include <cstddef>
+#include <span>
+
 #include "config.hh"
 #include "resampler/types.hh"
 #include "slot.hh"
@@ -49,7 +52,6 @@ struct SwrContext : public PointerSlot<SwrContext, ::SwrContext> {
 
 class LswrResampler {
     SwrContext swr_;
-    double ratio_;
     bool noskip_{false};
     bool reset_{false};
 

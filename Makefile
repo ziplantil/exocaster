@@ -27,7 +27,7 @@ LDLIBS = -lm -lpthread
 CXXFLAGS := $(CXXFLAGS) $(CUSTOM_CXXFLAGS)
 LDFLAGS := $(LDFLAGS) $(CUSTOM_LDFLAGS)
 
-TARGET := build/exocaster
+TARGET := exocaster
 OBJS := src/queue/queue.o \
 		src/queue/commandqueue.o \
 		src/queue/file.o \

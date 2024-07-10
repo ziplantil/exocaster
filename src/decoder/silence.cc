@@ -26,12 +26,17 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
-#include "decoder/silence.hh"
+#include <algorithm>
+#include <span>
+
 #include "config.hh"
+#include "decoder/silence.hh"
 #include "log.hh"
+#include "pcmbuffer.hh"
 #include "pcmconvert.hh"
-#include "pcmtypes.hh"
 #include "server.hh"
+#include "types.hh"
+#include "util.hh"
 
 namespace exo {
 

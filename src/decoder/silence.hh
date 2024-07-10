@@ -29,7 +29,13 @@ DEALINGS IN THE SOFTWARE.
 #ifndef DECODER_SILENCE_HH
 #define DECODER_SILENCE_HH
 
+#include <cstddef>
+#include <memory>
+#include <optional>
+
+#include "config.hh"
 #include "decoder/decoder.hh"
+#include "pcmtypes.hh"
 
 namespace exo {
 

@@ -26,13 +26,16 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
-#include "queue/file.hh"
+#include <cerrno>
+#include <exception>
+#include <system_error>
+
 #include "config.hh"
 #include "log.hh"
+#include "queue/file.hh"
 #include "queue/queue.hh"
 #include "queue/queueutil.hh"
 #include "server.hh"
-#include <system_error>
 
 namespace exo {
 

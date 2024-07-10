@@ -29,8 +29,12 @@ DEALINGS IN THE SOFTWARE.
 #ifndef JOBQUEUE_HH
 #define JOBQUEUE_HH
 
+#include <cstddef>
 #include <memory>
 #include <mutex>
+#include <optional>
+#include <thread>
+#include <vector>
 
 #include "buffer.hh"
 #include "server.hh"

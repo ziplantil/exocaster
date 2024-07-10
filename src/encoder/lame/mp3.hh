@@ -29,8 +29,20 @@ DEALINGS IN THE SOFTWARE.
 #ifndef ENCODER_LAME_MP3_HH
 #define ENCODER_LAME_MP3_HH
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <span>
+#include <vector>
+
+#include "config.hh"
 #include "encoder/encoder.hh"
+#include "metadata.hh"
+#include "pcmbuffer.hh"
+#include "resampler/resampler.hh"
 #include "slot.hh"
+#include "streamformat.hh"
+#include "types.hh"
 #include "util.hh"
 
 extern "C" {

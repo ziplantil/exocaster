@@ -26,8 +26,14 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
+#include <algorithm>
+#include <array>
+#include <cstdlib>
+#include <new>
 #include <random>
 #include <stdexcept>
+#include <string>
+#include <type_traits>
 
 #include "config.hh"
 #include "encoder/libflac/oggflac.hh"
@@ -39,6 +45,7 @@ DEALINGS IN THE SOFTWARE.
 #include "unaligned.hh"
 
 extern "C" {
+#include <FLAC/format.h>
 #include <FLAC/metadata.h>
 #include <FLAC/stream_encoder.h>
 }

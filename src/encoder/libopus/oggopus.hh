@@ -29,15 +29,26 @@ DEALINGS IN THE SOFTWARE.
 #ifndef ENCODER_LIBOPUS_OGGOPUS_HH
 #define ENCODER_LIBOPUS_OGGOPUS_HH
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <span>
+#include <vector>
+
+#include "config.hh"
 #include "encoder/encoder.hh"
 #include "encoder/ogg/ogg.hh"
+#include "metadata.hh"
 #include "resampler/resampler.hh"
 #include "slot.hh"
+#include "streamformat.hh"
+#include "types.hh"
 #include "util.hh"
 
 extern "C" {
 #include <ogg/ogg.h>
 #include <opus/opus.h>
+#include <opus/opus_types.h>
 }
 
 namespace exo {

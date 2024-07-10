@@ -29,9 +29,12 @@ DEALINGS IN THE SOFTWARE.
 #ifndef BROCA_FILE_HH
 #define BROCA_FILE_HH
 
-#include "broca/broca.hh"
-
 #include <fstream>
+#include <memory>
+
+#include "broca/broca.hh"
+#include "config.hh"
+#include "streamformat.hh"
 
 namespace exo {
 

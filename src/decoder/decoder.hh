@@ -32,11 +32,14 @@ DEALINGS IN THE SOFTWARE.
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <stdexcept>
+#include <string>
 
 #include "config.hh"
 #include "jobqueue.hh"
 #include "pcmbuffer.hh"
 #include "pcmtypes.hh"
+#include "util.hh"
 
 namespace exo {
 

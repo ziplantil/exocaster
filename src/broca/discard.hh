@@ -29,8 +29,12 @@ DEALINGS IN THE SOFTWARE.
 #ifndef BROCA_DISCARD_HH
 #define BROCA_DISCARD_HH
 
+#include <memory>
+
 #include "broca/broca.hh"
+#include "config.hh"
 #include "fclock.hh"
+#include "streamformat.hh"
 
 namespace exo {
 

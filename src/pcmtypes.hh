@@ -34,10 +34,8 @@ DEALINGS IN THE SOFTWARE.
 #include <concepts>
 #include <cstdint>
 #include <limits>
-#include <string>
 #include <type_traits>
 
-#include "types.hh"
 #include "util.hh"
 
 namespace exo {

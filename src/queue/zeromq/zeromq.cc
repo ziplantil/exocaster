@@ -26,12 +26,17 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
+#include <chrono>
+#include <exception>
+#include <stdexcept>
 #include <thread>
-#include <zmq.hpp>
+#include <utility>
 
 #include "log.hh"
 #include "queue/zeromq/zeromq.hh"
 #include "server.hh"
+
+#include <zmq.hpp>
 
 namespace exo {
 
