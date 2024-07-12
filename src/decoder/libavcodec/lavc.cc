@@ -261,15 +261,6 @@ LavcDecodeJob::LavcDecodeJob(std::shared_ptr<exo::PcmSplitter> sink,
         throw std::runtime_error("lavc decoder: "
                                  "unsupported PCM sample format");
     }
-
-#if !EXO_USE_LIBAVFILTER
-    int ret;
-    bufferFrameCount_ = pcmFormat_.rate / 4; // 250 ms
-    ret = av_samples_alloc(&buffer_, nullptr, outChLayout_.nb_channels,
-                           bufferFrameCount_, outSampleFmt_, 1);
-    if (ret < 0 || !buffer_)
-        throw std::bad_alloc();
-#endif
 }
 
 static void lavcError_(const char* file, std::size_t lineno, const char* fn,
@@ -281,8 +272,29 @@ static void lavcError_(const char* file, std::size_t lineno, const char* fn,
 
 #define EXO_LAVC_ERROR(fn, ret) exo::lavcError_(__FILE__, __LINE__, fn, ret)
 
+#define EXO_LOG_LAV_VERSION(name, prefix, realtime)                            \
+    do {                                                                       \
+        auto ver_ = realtime();                                                \
+        exo::log(__FILE__, __LINE__, "%-14s %2u.%3u.%3u / %2u.%3u.%3u", name,  \
+                 prefix##_VERSION_MAJOR, prefix##_VERSION_MINOR,               \
+                 prefix##_VERSION_MICRO, (ver_ >> 16), (ver_ >> 8) & 0xFFu,    \
+                 (ver_) & 0xFFu);                                              \
+    } while (0);
+
 void LavcDecodeJob::init() {
     int ret;
+
+#if EXO_LAVC_DEBUG
+    EXO_LOG("dumping libav* versions");
+    EXO_LOG_LAV_VERSION("libavutil", LIBAVUTIL, avutil_version);
+    EXO_LOG_LAV_VERSION("libavcodec", LIBAVCODEC, avcodec_version);
+    EXO_LOG_LAV_VERSION("libavformat", LIBAVFORMAT, avformat_version);
+#if EXO_USE_LIBAVFILTER
+    EXO_LOG_LAV_VERSION("libavfilter", LIBAVUTIL, avfilter_version);
+#else
+    EXO_LOG_LAV_VERSION("libswresample", LIBSWRESAMPLE, swresample_version);
+#endif
+#endif
 
     codecContext_.reset();
     if (EXO_UNLIKELY(
@@ -783,16 +795,17 @@ void LavcDecodeJob::calculateGain_() {
     }
 }
 
-int LavcDecodeJob::processBuffer_(std::shared_ptr<exo::PcmSplitter>& sink,
-                                  exo::byte* buffer, std::size_t frameCount) {
+int LavcDecodeJob::processResampledFrame_(
+    std::shared_ptr<exo::PcmSplitter>& sink, const AVFrame* frame) {
     int size = av_samples_get_buffer_size(nullptr, outChLayout_.nb_channels,
-                                          static_cast<int>(frameCount),
-                                          outSampleFmt_, 1);
+                                          frame->nb_samples, outSampleFmt_, 1);
     if (EXO_UNLIKELY(size < 0)) {
         EXO_LAVC_ERROR("av_samples_get_buffer_size", size);
         return size;
     }
 
+    exo::byte* buffer = frame->data[0];
+    std::size_t frameCount = static_cast<std::size_t>(frame->nb_samples);
     if (params_.applyReplayGain)
         exo::applyReplayGain(pcmFormat_, buffer, frameCount, gain_);
     sink->pcm({buffer, static_cast<std::size_t>(size)});
@@ -802,52 +815,22 @@ int LavcDecodeJob::processBuffer_(std::shared_ptr<exo::PcmSplitter>& sink,
 int LavcDecodeJob::processFrame_(std::shared_ptr<exo::PcmSplitter>& sink,
                                  const AVFrame* frame) {
     auto resamplerContext = resamplerContext_.get();
-    if (!frame) {
-        // flush
-        while (EXO_LIKELY(exo::shouldRun())) {
-            exo::byte* out = buffer_;
-            int gotFrames = swr_convert(resamplerContext, &out,
-                                        bufferFrameCount_, nullptr, 0);
-            if (EXO_UNLIKELY(gotFrames < 0)) {
-                EXO_LAVC_ERROR("swr_convert", gotFrames);
-                return gotFrames;
-            }
-            if (!gotFrames)
-                break;
+    auto resamplerFrame = resamplerFrame_.get();
 
-            int err = processBuffer_(sink, out, gotFrames);
-            if (err < 0)
-                return err;
-        }
+    resamplerFrame_->ch_layout = outChLayout_;
+    resamplerFrame_->sample_rate = pcmFormat_.rate;
+    resamplerFrame_->format = outSampleFmt_;
 
-    } else {
-        // accept frame
-        int framesToExpect =
-            swr_get_out_samples(resamplerContext, frame->nb_samples);
-        int inCount = frame->nb_samples;
-        const exo::byte* in = frame->data[0];
-
-        while (EXO_LIKELY(exo::shouldRun()) && framesToExpect > 0) {
-            exo::byte* out = buffer_;
-            int expectFrames = std::min(framesToExpect, bufferFrameCount_);
-            int gotFrames =
-                swr_convert(resamplerContext, &out, expectFrames, &in, inCount);
-            if (EXO_UNLIKELY(gotFrames < 0)) {
-                EXO_LAVC_ERROR("swr_convert", gotFrames);
-                return gotFrames;
-            }
-            if (!gotFrames)
-                break;
-            framesToExpect -= gotFrames;
-            inCount = 0; // do not refeed the same frame
-
-            int err = processBuffer_(sink, out, gotFrames);
-            if (err < 0)
-                return err;
-            if (gotFrames < expectFrames)
-                break;
-        }
+    int err = swr_convert_frame(resamplerContext, resamplerFrame, frame);
+    if (EXO_UNLIKELY(err < 0)) {
+        EXO_LAVC_ERROR("swr_convert_frame", err);
+        return err;
     }
+
+    err = processResampledFrame_(sink, resamplerFrame);
+    av_frame_unref(resamplerFrame);
+    if (err < 0)
+        return err;
     return 0;
 }
 #endif // EXO_USE_LIBAVFILTER
@@ -919,10 +902,11 @@ void LavcDecodeJob::readMetadata_(const AVDictionary* metadict) {
 
 #if LIBAVUTIL_VERSION_MAJOR > 57 ||                                            \
     (LIBAVUTIL_VERSION_MAJOR == 57 && LIBAVUTIL_VERSION_MINOR >= 42)
-    while ((tag = av_dict_iterate(metadict, tag))) {
+    while ((tag = av_dict_iterate(metadict, tag)))
 #else
-    while ((tag = av_dict_get(metadict, "", tag, AV_DICT_IGNORE_SUFFIX))) {
+    while ((tag = av_dict_get(metadict, "", tag, AV_DICT_IGNORE_SUFFIX)))
 #endif
+    {
         if (!exo::strnicmp(tag->key, "REPLAYGAIN_", 11)) {
             // do not forward ReplayGain tags
 #if EXO_USE_LIBAVFILTER
@@ -1015,13 +999,6 @@ void LavcDecodeJob::run(std::shared_ptr<exo::PcmSplitter> sink) {
         EXO_LAVC_ERROR("swr_convert(EOF)", ret);
 #endif
     flush_(sink);
-}
-
-LavcDecodeJob::~LavcDecodeJob() noexcept {
-#if !EXO_USE_LIBAVFILTER
-    if (EXO_LIKELY(buffer_))
-        av_freep(&buffer_);
-#endif
 }
 
 } // namespace exo

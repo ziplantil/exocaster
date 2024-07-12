@@ -189,8 +189,7 @@ class LavcDecodeJob : public exo::BaseDecodeJob {
     exo::LavcGain gain_;
     exo::LavcGainCalculator gainCalculator_;
     exo::LavSwrContext resamplerContext_{nullptr};
-    int bufferFrameCount_;
-    exo::byte* buffer_;
+    exo::LavFrame resamplerFrame_;
 #endif
     AVChannelLayout outChLayout_;
     enum AVSampleFormat outSampleFmt_;
@@ -208,8 +207,8 @@ class LavcDecodeJob : public exo::BaseDecodeJob {
     void calculateGain_();
     int processFrame_(std::shared_ptr<exo::PcmSplitter>& sink,
                       const AVFrame* frame);
-    int processBuffer_(std::shared_ptr<exo::PcmSplitter>& sink,
-                       exo::byte* buffer, std::size_t frameCount);
+    int processResampledFrame_(std::shared_ptr<exo::PcmSplitter>& sink,
+                               const AVFrame* frame);
 #endif
     void flush_(std::shared_ptr<exo::PcmSplitter>& sink);
 
@@ -219,8 +218,7 @@ class LavcDecodeJob : public exo::BaseDecodeJob {
                   std::shared_ptr<exo::ConfigObject> command,
                   const std::string& filePath,
                   const exo::LavcDecodeParams& params);
-    EXO_DEFAULT_NONCOPYABLE(LavcDecodeJob)
-    ~LavcDecodeJob() noexcept;
+    EXO_DEFAULT_NONCOPYABLE_DEFAULT_DESTRUCTOR(LavcDecodeJob)
 
     void init();
     void run(std::shared_ptr<exo::PcmSplitter> sink);
