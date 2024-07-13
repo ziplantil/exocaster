@@ -67,12 +67,13 @@ class HttpClient {
     exo::CurlGlobal global_;
     std::string url_;
     std::unordered_map<std::string, std::string> headers_;
+    bool cacheBust_;
 
   public:
     HttpClient(const exo::ConfigObject& config, const std::string& instanceId);
     EXO_DEFAULT_NONCOPYABLE_DEFAULT_DESTRUCTOR(HttpClient);
 
-    inline const auto& url() const noexcept { return url_; }
+    std::string url() const noexcept;
     inline const auto& headers() const noexcept { return headers_; }
 };
 

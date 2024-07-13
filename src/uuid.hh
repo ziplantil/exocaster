@@ -69,7 +69,7 @@ struct UUID {
             b[i] = static_cast<exo::byte>((x >> (8 * (5 - i))) & 0xFFU);
         b[6] = 0x70U | (dist(randomizer) & 0x0FU);
         b[7] = dist(randomizer);
-        b[8] = 0x80U | (dist(randomizer) & 0x3Fu);
+        b[8] = 0x80U | (dist(randomizer) & 0x3FU);
         for (std::size_t i = 9; i < 16; ++i)
             b[i] = dist(randomizer);
 
@@ -78,7 +78,7 @@ struct UUID {
 
     /** Generates a version 7 UUID. */
     static UUID uuid7() {
-        std::random_device dev;
+        static std::random_device dev;
         return uuid7(dev);
     }
 };

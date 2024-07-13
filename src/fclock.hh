@@ -35,6 +35,9 @@ DEALINGS IN THE SOFTWARE.
 #include <thread>
 #include <utility>
 
+#include "server.hh"
+#include "util.hh"
+
 namespace exo {
 
 template <typename T = std::chrono::steady_clock> class FrameClock {
@@ -97,8 +100,11 @@ template <typename T = std::chrono::steady_clock> class FrameClock {
     /** Synchronizes with the frame clock by sleeping the current thread
         if ahead by at least the given number of frames. */
     inline void sleepIf(std::size_t atLeastFrames) noexcept {
-        while (frames_ >= static_cast<FrameCounter>(atLeastFrames)) {
+        while (frames_ >= static_cast<FrameCounter>(atLeastFrames) &&
+               EXO_LIKELY(exo::shouldRun())) {
             auto nanosToSleep = frameDuration_ * (frames_ - atLeastFrames / 2);
+            nanosToSleep =
+                std::min<decltype(nanosToSleep)>(nanosToSleep, std::nano::den);
             std::this_thread::sleep_for(std::chrono::nanoseconds(nanosToSleep));
             update(0);
         }

@@ -32,7 +32,6 @@ DEALINGS IN THE SOFTWARE.
 #include <random>
 #include <stdexcept>
 #include <string>
-#include <vector>
 
 #include "encoder/libvorbis/oggvorbis.hh"
 #include "log.hh"

@@ -10,10 +10,10 @@ RELEASE ?= 0
 CUSTOM_CXXFLAGS=
 CUSTOM_LDFLAGS=
 
-# Libraries: libavcodec, for lavc decoder and libswresample resampler
+# Libraries: libav*/libsw* (FFmpeg), for lavc decoder and libswresample resampler
 LIBAVCODEC_ENABLE=1
 LIBAVCODEC_CXXFLAGS=
-LIBAVCODEC_LDLIBS=-lavcodec -lavformat -lavutil -lavfilter -lswresample
+LIBAVCODEC_LDLIBS=-lavcodec -lavformat -lavutil -lavfilter -lswresample -lswscale
 
 # Libraries: libvorbis, for oggvorbis encoder
 LIBVORBIS_ENABLE=1

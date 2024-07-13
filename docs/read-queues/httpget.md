@@ -20,6 +20,10 @@ A JSON object with the following fields:
   of the query parameter added to the URL, with a value as a string that is
   generated randomly when Exocaster starts. Can be used by the target server
   to distinguish between multiple concurrently running instances.
+* `cacheBustParameter` (optional): If specified, must be a string. The name
+  of the query parameter added to the URL, with a value as a string that is
+  generated randomly on every request. Intended to prevent the HTTP server
+  from caching the response.
 
 ## Notes
 

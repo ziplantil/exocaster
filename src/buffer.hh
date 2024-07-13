@@ -394,7 +394,6 @@ template <typename T> class RingBuffer {
             lock.unlock();
             didWrite_();
         }
-
         exo::discard_(src, src + count);
     }
 

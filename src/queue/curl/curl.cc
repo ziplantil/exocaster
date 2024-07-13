@@ -39,6 +39,7 @@ DEALINGS IN THE SOFTWARE.
 #include "server.hh"
 #include "slot.hh"
 #include "util.hh"
+#include "uuid.hh"
 #include "version.hh"
 
 extern "C" {
@@ -48,7 +49,8 @@ extern "C" {
 namespace exo {
 
 exo::HttpClient::HttpClient(const exo::ConfigObject& config,
-                            const std::string& instanceId) {
+                            const std::string& instanceId)
+    : cacheBust_(false) {
     if (!cfg::isObject(config))
         throw std::runtime_error("http client config must be an object");
     if (!cfg::hasString(config, "url"))
@@ -62,19 +64,34 @@ exo::HttpClient::HttpClient(const exo::ConfigObject& config,
             headers_.insert_or_assign(key, value);
     }
 
-    if (cfg::hasString(config, "instanceParameter")) {
+    if (cfg::hasString(config, "instanceParameter") ||
+        cfg::hasString(config, "cacheBustParameter")) {
         CURLU* url = curl_url();
+        int ret;
         if (!url)
             throw std::bad_alloc();
 
-        auto queryParameter =
-            cfg::namedString(config, "instanceParameter") + "=" + instanceId;
-
-        int ret;
         ret = curl_url_set(url, CURLUPART_URL, url_.c_str(), 0);
-        if (!ret)
+
+        auto instanceParameter =
+            cfg::namedString(config, "instanceParameter", "");
+        if (!ret && !instanceParameter.empty()) {
+            auto queryParameter = instanceParameter + "=" + instanceId;
+
             ret = curl_url_set(url, CURLUPART_QUERY, queryParameter.c_str(),
                                CURLU_APPENDQUERY);
+        }
+
+        auto cacheBustParameter =
+            cfg::namedString(config, "cacheBustParameter", "");
+        if (!ret && !cacheBustParameter.empty()) {
+            // this must be the last parameter in the URL
+            auto queryParameter = cacheBustParameter + "=";
+            ret = curl_url_set(url, CURLUPART_QUERY, queryParameter.c_str(),
+                               CURLU_APPENDQUERY);
+            cacheBust_ = true;
+        }
+
         char* formatted;
         if (!ret)
             ret = curl_url_get(url, CURLUPART_URL, &formatted, 0);
@@ -85,6 +102,13 @@ exo::HttpClient::HttpClient(const exo::ConfigObject& config,
         curl_free(formatted);
         curl_url_cleanup(url);
     }
+}
+
+inline std::string exo::HttpClient::url() const noexcept {
+    auto result = url_;
+    if (cacheBust_)
+        result += exo::UUID::uuid7().str();
+    return result;
 }
 
 CURL::CURL(::CURL* p) : PointerSlot(p) {

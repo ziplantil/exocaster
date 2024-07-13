@@ -31,9 +31,11 @@ DEALINGS IN THE SOFTWARE.
 #include <climits>
 #include <cmath>
 #include <concepts>
+#include <cstring>
 #include <exception>
 #include <new>
 #include <span>
+#include <sstream>
 #include <stdexcept>
 #include <utility>
 
@@ -42,7 +44,6 @@ DEALINGS IN THE SOFTWARE.
 #else
 #include <limits>
 #include <locale>
-#include <sstream>
 #include <type_traits>
 #endif
 
@@ -57,6 +58,7 @@ DEALINGS IN THE SOFTWARE.
 
 extern "C" {
 #include <libavcodec/avcodec.h>
+#include <libavcodec/codec.h>
 #include <libavcodec/codec_id.h>
 #include <libavcodec/packet.h>
 #include <libavformat/avformat.h>
@@ -66,6 +68,7 @@ extern "C" {
 #include <libavutil/error.h>
 #include <libavutil/mem.h>
 #include <libavutil/opt.h>
+#include <libavutil/pixdesc.h>
 #include <libavutil/samplefmt.h>
 #if EXO_USE_LIBAVFILTER
 #include <libavfilter/avfilter.h>
@@ -74,6 +77,7 @@ extern "C" {
 #else
 #include <libswresample/swresample.h>
 #endif
+#include <libswscale/swscale.h>
 }
 
 #ifndef EXO_LAVC_DEBUG
@@ -187,6 +191,10 @@ LavcDecoder::LavcDecoder(const exo::ConfigObject& config,
     params_.r128Fix = cfg::namedBoolean(config, "r128Fix", false);
     params_.normalizeVorbisComment =
         cfg::namedBoolean(config, "normalizeVorbisComment", true);
+    params_.metadataBlockPicture =
+        cfg::namedBoolean(config, "metadataBlockPicture", false);
+    params_.metadataBlockPictureMaxSize =
+        cfg::namedUInt<unsigned>(config, "metadataBlockPictureMaxSize", 256);
 }
 
 std::optional<std::unique_ptr<BaseDecodeJob>>
@@ -291,7 +299,9 @@ void LavcDecodeJob::init() {
     EXO_LOG_LAV_VERSION("libavformat", LIBAVFORMAT, avformat_version);
 #if EXO_USE_LIBAVFILTER
     EXO_LOG_LAV_VERSION("libavfilter", LIBAVUTIL, avfilter_version);
-#else
+#endif
+    EXO_LOG_LAV_VERSION("libswscale", LIBSWSCALE, swscale_version);
+#if !EXO_USE_LIBAVFILTER
     EXO_LOG_LAV_VERSION("libswresample", LIBSWRESAMPLE, swresample_version);
 #endif
 #endif
@@ -326,6 +336,10 @@ void LavcDecodeJob::init() {
 
     // ...and the codec
     readMetadata_(formatContext_->streams[streamIndex]->metadata);
+
+    if (params_.metadataBlockPicture) {
+        scanForAlbumArt_();
+    }
 
     // TODO: we do not read metadata from later on in the stream right now.
     // should we? it's probably not relevant in most cases
@@ -841,7 +855,8 @@ int LavcDecodeJob::decodeFrames_(std::shared_ptr<exo::PcmSplitter>& sink,
     auto codecContext = codecContext_.get();
     auto frame = frame_.get();
 
-    while ((ret = avcodec_receive_frame(codecContext, frame)) >= 0) {
+    while ((ret = avcodec_receive_frame(codecContext, frame)) >= 0 &&
+           EXO_LIKELY(exo::shouldRun())) {
 #if EXO_USE_LIBAVFILTER
         if (EXO_UNLIKELY((ret = av_buffersrc_add_frame_flags(
                               bufferSourceContext_, frame,
@@ -999,6 +1014,285 @@ void LavcDecodeJob::run(std::shared_ptr<exo::PcmSplitter> sink) {
         EXO_LAVC_ERROR("swr_convert(EOF)", ret);
 #endif
     flush_(sink);
+}
+
+/** Writes an unsigned 32-bit integer into the stream as big-endian. */
+template <typename Stream>
+static void writeBE32(Stream& stream, std::uint32_t value) {
+    stream << static_cast<unsigned char>((value >> 24) & 0xFFU);
+    stream << static_cast<unsigned char>((value >> 16) & 0xFFU);
+    stream << static_cast<unsigned char>((value >> 8) & 0xFFU);
+    stream << static_cast<unsigned char>((value) & 0xFFU);
+}
+
+/** Base64 alphabet */
+static char base64Chars[64] = {
+    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+    'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+    'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
+
+template <typename Stream>
+static void encodeBase64Group(Stream& stream, const std::array<byte, 3>& b,
+                              std::size_t k) {
+    std::size_t i;
+    std::uint32_t w = 0;
+    ++k;
+    for (i = 0; i < b.size(); ++i)
+        w = (w << 8) | static_cast<decltype(w)>(b[i]);
+    for (i = 0; i < k; ++i)
+        stream << base64Chars[(w >> 18) & 63], w <<= 6;
+    for (i = k; i < 4; ++i)
+        stream << '=';
+}
+
+/** Encodes the given string of bytes into the stream as Base64. */
+template <typename Stream>
+static void encodeBase64(Stream& stream, const std::string_view& sv) {
+    std::size_t i = 0, n = sv.size();
+
+    while (i < n) {
+        std::size_t k = 0;
+        std::array<byte, 3> b{0, 0, 0};
+
+        if (i < n)
+            b[k++] = sv[i++];
+        if (i < n)
+            b[k++] = sv[i++];
+        if (i < n)
+            b[k++] = sv[i++];
+
+        encodeBase64Group(stream, b, k);
+    }
+}
+
+struct AlbumArtImage {
+    const char* mime;
+    unsigned width;
+    unsigned height;
+    unsigned depth;
+    LavPacket data;
+};
+
+struct SwsContext : PointerSlot<SwsContext, ::SwsContext> {
+    using PointerSlot::PointerSlot;
+    SwsContext(::SwsContext* p) : PointerSlot(p) {}
+    ~SwsContext() noexcept {
+        if (has())
+            sws_freeContext(release());
+    }
+    EXO_DEFAULT_NONCOPYABLE(SwsContext);
+};
+
+static exo::AlbumArtImage downscaleImage(AVFrame* frame, unsigned targetSize) {
+    int ret;
+    auto sourceWidth = static_cast<unsigned>(frame->width),
+         sourceHeight = static_cast<unsigned>(frame->height);
+    auto sourceFormat = static_cast<AVPixelFormat>(frame->format);
+    unsigned targetWidth, targetHeight;
+    AVPixelFormat targetFormat = AV_PIX_FMT_YUV420P;
+
+    auto pixFmtDescriptor =
+        av_pix_fmt_desc_get(static_cast<AVPixelFormat>(targetFormat));
+    if (!pixFmtDescriptor)
+        throw std::runtime_error("unsupported target pixel format");
+
+    double aspectRatio = static_cast<double>(sourceWidth) / sourceHeight;
+    double newWidth, newHeight;
+    if (aspectRatio >= 1) {
+        newWidth = targetSize;
+        newHeight = targetSize / aspectRatio;
+    } else {
+        newWidth = targetSize * aspectRatio;
+        newHeight = targetSize;
+    }
+    targetWidth = std::max(static_cast<unsigned>(std::round(newWidth)), 1U);
+    targetHeight = std::max(static_cast<unsigned>(std::round(newHeight)), 1U);
+
+    SwsContext swsContext(sws_getCachedContext(
+        nullptr, frame->width, frame->height, sourceFormat, targetWidth,
+        targetHeight, targetFormat, SWS_BICUBIC, nullptr, nullptr, nullptr));
+    if (!swsContext.has())
+        throw std::bad_alloc();
+
+    int srcRange, dstRange;
+    int brightness, contrast, saturation;
+    int tables[4];
+    if ((ret = sws_getColorspaceDetails(
+             swsContext.get(), (int**)&tables, &srcRange, (int**)&tables,
+             &dstRange, &brightness, &contrast, &saturation)) < 0)
+        throw std::runtime_error("sws_getColorspaceDetails failed");
+    const int* coefs = sws_getCoefficients(SWS_CS_DEFAULT);
+    srcRange = 1;
+    if ((ret = sws_setColorspaceDetails(swsContext.get(), coefs, srcRange,
+                                        coefs, dstRange, brightness, contrast,
+                                        saturation)) < 0)
+        throw std::runtime_error("sws_setColorspaceDetails failed");
+
+    LavFrame targetFrame;
+    if ((ret = sws_scale_frame(swsContext.get(), targetFrame.get(), frame)) < 0)
+        throw std::runtime_error("sws_scale_frame failed");
+
+    auto jpeg = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
+    if (!jpeg)
+        throw std::runtime_error("no JPEG encoder found");
+
+    constexpr unsigned Q = 3;
+    LavCodecContext jpegContext(jpeg);
+    jpegContext->width = targetWidth;
+    jpegContext->height = targetHeight;
+    jpegContext->pix_fmt = targetFormat;
+    jpegContext->flags |= AV_CODEC_FLAG_QSCALE;
+    jpegContext->qmin = jpegContext->qmax = Q;
+    jpegContext->time_base = AVRational{1, 25};
+    jpegContext->codec_id = AV_CODEC_ID_MJPEG;
+    jpegContext->color_range = AVCOL_RANGE_JPEG;
+    jpegContext->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;
+    targetFrame->quality = FF_QP2LAMBDA * Q;
+
+    if ((ret = avcodec_open2(jpegContext.get(), jpeg, nullptr)) < 0)
+        throw std::runtime_error("avcodec_open2 JPEG failed");
+
+    if ((ret = avcodec_send_frame(jpegContext.get(), targetFrame.get())) < 0)
+        throw std::runtime_error("avcodec_receive_frame JPEG failed");
+
+    targetFrame->width = targetWidth;
+    targetFrame->height = targetHeight;
+    targetFrame->color_range = AVCOL_RANGE_JPEG;
+    targetFrame->quality = FF_QP2LAMBDA * Q;
+
+    LavPacket pkt;
+    if ((ret = avcodec_receive_packet(jpegContext.get(), pkt.get())) < 0)
+        throw std::runtime_error("avcodec_receive_frame JPEG failed");
+
+    return {.mime = "image/jpeg",
+            .width = targetWidth,
+            .height = targetHeight,
+            .depth =
+                static_cast<unsigned>(av_get_bits_per_pixel(pixFmtDescriptor)),
+            .data = std::move(pkt)};
+}
+
+void LavcDecodeJob::scanForAlbumArt_() {
+    // find stream with AV_DISPOSITION_ATTACHED_PIC
+    AVStream* picStream = nullptr;
+    for (unsigned i = 0; i < formatContext_->nb_streams; ++i) {
+        if (formatContext_->streams[i]->disposition &
+            AV_DISPOSITION_ATTACHED_PIC) {
+            picStream = formatContext_->streams[i];
+            break;
+        }
+    }
+    if (!picStream)
+        return;
+
+    auto attachedPic = picStream->attached_pic;
+    const char* mime;
+    // check codec
+    switch (picStream->codecpar->codec_id) {
+    case AV_CODEC_ID_MJPEG:
+        mime = "image/jpeg";
+        break;
+    case AV_CODEC_ID_PNG:
+        mime = "image/png";
+        break;
+    default:
+        return;
+    }
+
+    if (attachedPic.size < 0 ||
+        static_cast<unsigned>(attachedPic.size) > UINT32_MAX)
+        return;
+    std::uint32_t attachedPicSize = attachedPic.size;
+
+    const char* description = "Cover (front)";
+
+    try {
+        // decode frame to get width, height and pixel format
+        int ret;
+        auto codec = avcodec_find_decoder(picStream->codecpar->codec_id);
+        if (!codec)
+            return;
+
+        LavCodecContext codecContextHolder(codec);
+        auto codecContext = codecContextHolder.get();
+
+        auto codecpar = picStream->codecpar;
+        if ((ret = avcodec_parameters_to_context(codecContext, codecpar)) < 0)
+            return;
+
+        if (EXO_UNLIKELY((ret = avcodec_open2(codecContext, codec, nullptr)) <
+                         0))
+            return;
+
+        LavFrame frame;
+        avcodec_send_packet(codecContext, &attachedPic);
+        if (avcodec_receive_frame(codecContext, frame.get()))
+            return;
+
+        auto pixFmtDescriptor =
+            av_pix_fmt_desc_get(static_cast<AVPixelFormat>(frame->format));
+        if (!pixFmtDescriptor)
+            return;
+
+        unsigned width = frame->width;
+        unsigned height = frame->height;
+        unsigned colorDepthBits = av_get_bits_per_pixel(pixFmtDescriptor);
+        std::span<const char> data = {
+            reinterpret_cast<const char*>(attachedPic.data), attachedPicSize};
+        LavPacket imageDataBuffer;
+
+        if (!width || !height)
+            return;
+
+        if (std::max(width, height) > params_.metadataBlockPictureMaxSize ||
+            data.size() > width * height * colorDepthBits / CHAR_BIT) {
+            try {
+                exo::AlbumArtImage img = exo::downscaleImage(
+                    frame.get(), params_.metadataBlockPictureMaxSize);
+                mime = img.mime;
+                width = img.width;
+                height = img.height;
+                colorDepthBits = img.depth;
+                imageDataBuffer = std::move(img.data);
+                data = {reinterpret_cast<const char*>(imageDataBuffer->data),
+                        static_cast<std::size_t>(imageDataBuffer->size)};
+            } catch (const std::runtime_error& e) {
+                EXO_LOG("could not downscale image for album art: %s",
+                        e.what());
+                return;
+            }
+#if EXO_LAVC_DEBUG
+            EXO_LOG(
+                "downscaled album art to %ux%u, shrunk from %.1f KB to %.1f KB",
+                width, height, attachedPicSize * 1.0e-3, data.size() * 1.0e-3);
+#endif
+        }
+
+        // generate FLAC METADATA_BLOCK_PICTURE block
+        std::ostringstream binaryPicStream;
+        exo::writeBE32(binaryPicStream, 3); // Cover (front)
+        exo::writeBE32(binaryPicStream, std::strlen(mime));
+        binaryPicStream << mime;
+        exo::writeBE32(binaryPicStream, std::strlen(description));
+        binaryPicStream << description;
+        exo::writeBE32(binaryPicStream, width);          // width
+        exo::writeBE32(binaryPicStream, height);         // height
+        exo::writeBE32(binaryPicStream, colorDepthBits); // color depth
+        exo::writeBE32(binaryPicStream, 0);              // not indexed
+        exo::writeBE32(binaryPicStream, data.size());
+        binaryPicStream.write(data.data(), data.size());
+
+        auto binaryPic = std::move(binaryPicStream).str();
+        std::ostringstream base64PicStream;
+        exo::encodeBase64(base64PicStream, binaryPic);
+        metadata_.push_back(
+            {"METADATA_BLOCK_PICTURE", std::move(base64PicStream).str()});
+
+    } catch (const std::bad_alloc&) {
+        return;
+    }
 }
 
 } // namespace exo

@@ -78,6 +78,8 @@ struct LavcDecodeParams {
     bool replayGainAntipeak;
     bool r128Fix;
     bool normalizeVorbisComment;
+    bool metadataBlockPicture;
+    unsigned metadataBlockPictureMaxSize;
 };
 
 #if !EXO_USE_LIBAVFILTER
@@ -197,6 +199,7 @@ class LavcDecodeJob : public exo::BaseDecodeJob {
     int streamIndex_;
 
     void readMetadata_(const AVDictionary* metadict);
+    void scanForAlbumArt_();
     int decodeFrames_(std::shared_ptr<exo::PcmSplitter>& sink,
                       bool flush = false);
 #if EXO_USE_LIBAVFILTER

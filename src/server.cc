@@ -215,6 +215,7 @@ class Server {
     void init();
     void run();
     void close();
+    void quit();
 
     Server(exo::ServerConfig&& config) : config_(config) {
         try {
@@ -257,11 +258,9 @@ static auto startBroca(const std::unique_ptr<exo::BaseBroca>& broca) {
 
 std::atomic_flag terminating_;
 std::atomic_flag outOfCommands_;
+std::sig_atomic_t receivedSignal_ = static_cast<std::sig_atomic_t>(-1);
 
-void noMoreCommands() {
-    outOfCommands_.test_and_set();
-    outOfCommands_.notify_all();
-}
+void noMoreCommands() { outOfCommands_.test_and_set(); }
 
 void Server::readCommands_() {
     EXO_LOG("now accepting commands");
@@ -290,6 +289,20 @@ void Server::readCommands_() {
     }
 }
 
+void Server::quit() {
+    if (receivedSignal_ == SIGHUP)
+        EXO_LOG("received SIGHUP, quitting.");
+    if (receivedSignal_ == SIGINT)
+        EXO_LOG("received SIGINT, quitting.");
+    if (receivedSignal_ == SIGTERM)
+        EXO_LOG("received SIGTERM, quitting.");
+
+    pcm_->close();
+    for (auto& encoder : enc_)
+        encoder->close();
+    publisher_->close();
+}
+
 void Server::run() {
     EXO_LOG("starting exocaster " EXO_VERSION);
     std::vector<std::thread> encoders;
@@ -306,7 +319,18 @@ void Server::run() {
     while (!outOfCommands_.test())
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
+    if (receivedSignal_ != static_cast<std::sig_atomic_t>(-1)) {
+        terminating_.test_and_set();
+    }
+
     if (exo::shouldRun()) {
+        // start a thread in case we get a signal to terminate after this point
+        std::thread quitWatchdog([this]() {
+            while (!terminating_.test())
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            quit();
+        });
+
         // wait for jobs to finish
         jobs_->close();
         jobs_->stop();
@@ -320,12 +344,9 @@ void Server::run() {
             thread.join();
         // wait for publisher to finish
         publisher_->close();
+        quitWatchdog.detach();
     } else {
-        pcm_->close();
-        for (auto& encoder : enc_)
-            encoder->close();
-        publisher_->close();
-
+        quit();
         jobs_->stop();
         for (auto& thread : encoders)
             thread.join();
@@ -344,14 +365,9 @@ void Server::close() { commandQueue_->close(); }
 static std::unique_ptr<exo::Server> server;
 
 static void exitGracefullyOnSignal(int signal) {
-    if (signal == SIGHUP)
-        EXO_LOG("received SIGHUP, quitting.");
-    if (signal == SIGINT)
-        EXO_LOG("received SIGINT, quitting.");
-    if (signal == SIGTERM)
-        EXO_LOG("received SIGTERM, quitting.");
-    outOfCommands_.test_and_set();
     terminating_.test_and_set();
+    outOfCommands_.test_and_set();
+    receivedSignal_ = signal;
 }
 
 static void catchSignals() {
