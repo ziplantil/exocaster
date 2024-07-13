@@ -1174,6 +1174,10 @@ static exo::AlbumArtImage downscaleImage(AVFrame* frame, unsigned targetSize) {
             .data = std::move(pkt)};
 }
 
+// 0x0 image with MIME type "", description "", type 0 (Other)
+static std::string emptyMetadataBlockPicture =
+    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+
 void LavcDecodeJob::scanForAlbumArt_() {
     // find stream with AV_DISPOSITION_ATTACHED_PIC
     AVStream* picStream = nullptr;
@@ -1184,8 +1188,13 @@ void LavcDecodeJob::scanForAlbumArt_() {
             break;
         }
     }
-    if (!picStream)
+    if (!picStream) {
+        metadata_.push_back({
+            "METADATA_BLOCK_PICTURE",
+            exo::emptyMetadataBlockPicture,
+        });
         return;
+    }
 
     auto attachedPic = picStream->attached_pic;
     const char* mime;
@@ -1198,6 +1207,8 @@ void LavcDecodeJob::scanForAlbumArt_() {
         mime = "image/png";
         break;
     default:
+        metadata_.push_back(
+            {"METADATA_BLOCK_PICTURE", exo::emptyMetadataBlockPicture});
         return;
     }
 
