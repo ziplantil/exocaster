@@ -38,6 +38,7 @@ DEALINGS IN THE SOFTWARE.
 #include <span>
 #include <vector>
 
+#include "barrier.hh"
 #include "buffer.hh"
 #include "config.hh"
 #include "fclock.hh"
@@ -68,6 +69,7 @@ class PcmBuffer {
     bool closed_{false};
     exo::PcmFormat pcmFormat_;
     std::size_t subindex_;
+    std::size_t totalAck_{0};
     std::shared_ptr<exo::Publisher> publisher_;
     bool skip_;
     exo::FrameClock<> frameClock_;
@@ -88,7 +90,8 @@ class PcmBuffer {
               std::size_t bufferSize, std::shared_ptr<exo::Publisher> publisher,
               const exo::PcmBufferConfig& config);
 
-    std::shared_ptr<exo::Metadata> readMetadata();
+    std::shared_ptr<exo::Metadata>
+    readMetadata(const std::shared_ptr<exo::Barrier>& barrierPtr);
     std::size_t readPcm(std::span<exo::byte> destination);
 
     void writeMetadata(std::shared_ptr<exo::ConfigObject> command,

@@ -43,6 +43,7 @@ DEALINGS IN THE SOFTWARE.
 #include <utility>
 #include <vector>
 
+#include "barrier.hh"
 #include "broca/broca.hh"
 #include "config.hh"
 #include "decoder/decoder.hh"
@@ -207,6 +208,7 @@ class Server {
     std::unordered_map<std::string, std::unique_ptr<exo::BaseDecoder>> cmd_;
     std::vector<std::unique_ptr<exo::BaseEncoder>> enc_;
     std::vector<std::unique_ptr<exo::BaseBroca>> broca_;
+    std::vector<std::shared_ptr<exo::Barrier>> barriers_;
     std::string instanceId_;
 
     void readCommands_();
@@ -240,7 +242,7 @@ void Server::init() {
     pcm_ = exo::createPcmBuffers(config_.pcmbuffer, publisher_);
     jobs_ = std::make_unique<exo::DecoderJobQueue>(JOB_QUEUE_SIZE, pcm_);
     exo::registerCommands(cmd_, config_.commands, format_);
-    exo::registerOutputs(enc_, broca_, *pcm_, config_.outputs,
+    exo::registerOutputs(enc_, broca_, barriers_, *pcm_, config_.outputs,
                          config_.pcmbuffer, format_, config_.resampler);
     commandQueue_ = std::make_unique<exo::CommandQueue>(
         exo::createReadQueue(config_.shell, instanceId_));
@@ -335,6 +337,8 @@ void Server::run() {
         jobs_->close();
         jobs_->stop();
         pcm_->close();
+        for (const auto& barrier : barriers_)
+            barrier->free();
         // wait for encoders and brocas to finish
         for (auto& thread : encoders)
             thread.join();

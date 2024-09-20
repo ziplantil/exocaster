@@ -64,8 +64,9 @@ Lame::~Lame() noexcept {
 Mp3Encoder::Mp3Encoder(const exo::ConfigObject& config,
                        std::shared_ptr<exo::PcmBuffer> source,
                        exo::PcmFormat pcmFormat,
-                       const exo::ResamplerFactory& resamplerFactory)
-    : BaseEncoder(source, pcmFormat), lame_() {
+                       const exo::ResamplerFactory& resamplerFactory,
+                       const std::shared_ptr<exo::Barrier>& barrier)
+    : BaseEncoder(source, pcmFormat, barrier), lame_() {
     nomBitrate_ = cfg::namedInt<std::int_least32_t>(config, "bitrate", 320);
     minBitrate_ = cfg::namedInt<std::int_least32_t>(config, "minbitrate", -1);
     maxBitrate_ = cfg::namedInt<std::int_least32_t>(config, "maxbitrate", -1);

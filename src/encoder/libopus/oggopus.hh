@@ -95,7 +95,8 @@ class OggOpusEncoder : public exo::BaseEncoder {
     OggOpusEncoder(const exo::ConfigObject& config,
                    std::shared_ptr<exo::PcmBuffer> source,
                    exo::PcmFormat pcmFormat,
-                   const exo::ResamplerFactory& resamplerFactory);
+                   const exo::ResamplerFactory& resamplerFactory,
+                   const std::shared_ptr<exo::Barrier>& barrier);
 
     exo::StreamFormat streamFormat() const noexcept;
     std::size_t outputFrameRate() const noexcept;

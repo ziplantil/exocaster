@@ -37,6 +37,7 @@ DEALINGS IN THE SOFTWARE.
 #include <string>
 #include <vector>
 
+#include "barrier.hh"
 #include "config.hh"
 #include "metadata.hh"
 #include "packet.hh"
@@ -61,6 +62,7 @@ class BaseEncoder {
     std::shared_ptr<exo::PcmBuffer> source_;
     std::vector<std::shared_ptr<exo::PacketRingBuffer>> sinks_;
     exo::PcmFormat pcmFormat_;
+    exo::BarrierHolder barrierHolder_;
     bool startOfTrack_{false};
 
     void packet(std::size_t frameCount, std::span<const exo::byte> data);
@@ -75,8 +77,10 @@ class BaseEncoder {
                 const exo::ResamplerFactory& resamplerFactory);
     */
     inline BaseEncoder(std::shared_ptr<exo::PcmBuffer> source,
-                       exo::PcmFormat pcmFormat)
-        : source_(source), sinks_{}, pcmFormat_(pcmFormat) {}
+                       exo::PcmFormat pcmFormat,
+                       const std::shared_ptr<exo::Barrier>& barrier)
+        : source_(source), sinks_{}, pcmFormat_(pcmFormat),
+          barrierHolder_(barrier) {}
     EXO_DEFAULT_NONCOPYABLE_VIRTUAL_DESTRUCTOR(BaseEncoder)
 
     /** Returns the format that this encoder encodes into. */
@@ -108,7 +112,8 @@ class BaseEncoder {
 std::unique_ptr<exo::BaseEncoder>
 createEncoder(const std::string& type, const exo::ConfigObject& config,
               std::shared_ptr<exo::PcmBuffer> source, exo::PcmFormat pcmFormat,
-              const exo::ResamplerFactory& resamplerFactory);
+              const exo::ResamplerFactory& resamplerFactory,
+              const std::shared_ptr<exo::Barrier>& barrier);
 
 void printEncoderOptions(std::ostream& stream);
 

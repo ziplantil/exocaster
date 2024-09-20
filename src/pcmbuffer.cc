@@ -56,7 +56,8 @@ PcmBuffer::PcmBuffer(std::size_t subindex, const exo::PcmFormat& pcmFormat,
                                config.skipfactor * SKIP_FACTOR_FRAC_BITS)) /
                   pcmFormat_.bytesPerFrame()) {}
 
-std::shared_ptr<exo::Metadata> PcmBuffer::readMetadata() {
+std::shared_ptr<exo::Metadata>
+PcmBuffer::readMetadata(const std::shared_ptr<exo::Barrier>& barrierPtr) {
     std::unique_lock lock(mutex_);
     // some of this song still left, or no more metadata changes queued
     if (songHead_ == songTail_ || pcmLeft_)
@@ -65,11 +66,14 @@ std::shared_ptr<exo::Metadata> PcmBuffer::readMetadata() {
     auto index = songTail_;
     songTail_ = (songTail_ + 1) % songChanges_.size();
     pcmLeft_ = std::exchange(songChanges_[index].pcmBytes, 0);
+    auto totalAck = totalAck_++;
     auto metadata = std::exchange(songChanges_[index].metadata, nullptr);
-    publisher_->acknowledgeEncoderCommand(subindex_,
-                                          songChanges_[index].command);
+    auto command = std::exchange(songChanges_[index].command, nullptr);
     lock.unlock();
     hasPcm_.notify_all();
+    if (barrierPtr)
+        barrierPtr->sync(totalAck);
+    publisher_->acknowledgeEncoderCommand(subindex_, command);
     return metadata;
 }
 

@@ -181,14 +181,21 @@ Fields for every encoder configuration:
 * `type` (required): The type of encoder to use. See the `encoders` directory
   under `docs` for a list of possible encoders. Note that your Exocaster
   build must be compiled with support for an encoder in order to use it.
-* `buffer` (optional): The size of the buffer in bytes. One of these buffers
-  is created for each broca in this encoder. The default value is `65536`.
+* `buffer` (optional): The size of the buffer in bytes. These búffers contain
+  encoded audio data, and one of these buffers is created for each broca
+  in this encoder. The default value is `65536`.
 * `config` (optional): The configuration to provide for the encoder. See the
   documentation of each encoder for more information. Defaults to JSON `null`
   if omitted.
 * `broca` (required): The brocas for this encoder, as a JSON array containing
   broca configurations. Encoders without any brocas are ignored, but still
   count towards the encoder index.
+* `barrier` (optional): A string. If multiple encoders share the same
+  (non-empty) string, they will all share a common 'barrier'. This means that
+  the encoder track changes are forcefully synchronized, such that an encoder
+  may not start encoding the next track until all encoders have done so.
+  This is not recommended if the encoders or any of their brocas may fail,
+  as it will cause all encoders to get stuck.
 
 Broca configurations are JSON objects with the following fields:
 

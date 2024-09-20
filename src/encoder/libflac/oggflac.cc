@@ -111,8 +111,9 @@ static exo::PcmSampleFormat getFlacSampleFormat(exo::PcmSampleFormat fmt,
 
 exo::OggFlacEncoder::OggFlacEncoder(
     const exo::ConfigObject& config, std::shared_ptr<exo::PcmBuffer> source,
-    exo::PcmFormat pcmFormat, const exo::ResamplerFactory& resamplerFactory)
-    : BaseEncoder(source, pcmFormat), encoder_(), metadata_(nullptr) {
+    exo::PcmFormat pcmFormat, const exo::ResamplerFactory& resamplerFactory,
+    const std::shared_ptr<exo::Barrier>& barrier)
+    : BaseEncoder(source, pcmFormat, barrier), encoder_(), metadata_(nullptr) {
     std::random_device dev;
     std::uniform_int_distribution<std::uint32_t> dist(0, UINT32_MAX);
     serial_ = static_cast<std::uint32_t>(dist(dev));
@@ -347,12 +348,33 @@ void exo::OggFlacEncoder::endTrack() {
     if (!FLAC__stream_encoder_finish(encoder_.get()))
         EXO_LOG("FLAC__stream_encoder_finish returned false");
     init_ = false;
+#if EXO_OGGFLAC_SAMPLES_HACK
+    lastGranulePos_ = 0;
+#endif
 }
 
 FLAC__StreamEncoderWriteStatus
 exo::OggFlacEncoder::writeCallback(const FLAC__byte buffer[], std::size_t bytes,
                                    std::uint32_t samples,
                                    std::uint32_t currentFrame) {
+#if EXO_OGGFLAC_SAMPLES_HACK
+    /* libFLAC write callback samples is broken for Ogg FLAC.
+       <https://github.com/xiph/flac/issues/661>
+       <https://github.com/xiph/flac/pull/743>
+       read granule position from page manually and use it to compute
+       the number of samples */
+    if (!samples && bytes >= 14 && buffer[0] == 'O' && buffer[1] == 'g' &&
+        buffer[2] == 'g' && buffer[3] == 'S') {
+        std::uint64_t granulePos = 0;
+        // read granule position manually from Ogg page
+        // each write callback call from libFLAC for Ogg is an Ogg page
+        // little-endian unsigned 64-bit integer at offset 6 in page data
+        for (unsigned i = 0; i < 8; ++i)
+            granulePos |= static_cast<std::uint64_t>(buffer[6 + i]) << (i << 3);
+        samples = static_cast<std::uint32_t>(granulePos - lastGranulePos_);
+        lastGranulePos_ = granulePos;
+    }
+#endif
     packet(samples, {buffer, bytes});
     return FLAC__STREAM_ENCODER_WRITE_STATUS_OK;
 }

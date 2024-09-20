@@ -169,12 +169,13 @@ exo::OutputConfig OutputConfig::read(const exo::ConfigObject& c) {
     if (!cfg::hasKey(c, "broca"))
         throw exo::InvalidConfigError("no 'broca' field in an output config");
 
-    return exo::OutputConfig{.type = type,
-                             .buffer = buffer,
-                             .config = cfg::hasKey(c, "config")
-                                           ? cfg::key(c, "config")
-                                           : cfg::empty(),
-                             .broca = readBrocas(cfg::key(c, "broca"))};
+    return exo::OutputConfig{
+        .type = type,
+        .buffer = buffer,
+        .config =
+            cfg::hasKey(c, "config") ? cfg::key(c, "config") : cfg::empty(),
+        .broca = readBrocas(cfg::key(c, "broca")),
+        .barrier = cfg::mayRead<std::string>(c, "<output>", "barrier", "")};
 }
 
 static std::vector<exo::OutputConfig> readOutputs(const exo::ConfigObject& c) {

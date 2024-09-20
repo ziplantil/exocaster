@@ -99,7 +99,8 @@ class OggVorbisEncoder : public exo::BaseEncoder {
     OggVorbisEncoder(const exo::ConfigObject& config,
                      std::shared_ptr<exo::PcmBuffer> source,
                      exo::PcmFormat pcmFormat,
-                     const exo::ResamplerFactory& resamplerFactory);
+                     const exo::ResamplerFactory& resamplerFactory,
+                     const std::shared_ptr<exo::Barrier>& barrier);
 
     exo::StreamFormat streamFormat() const noexcept;
 

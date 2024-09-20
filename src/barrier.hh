@@ -1,6 +1,6 @@
 /***
 exocaster -- audio streaming helper
-encoder/pcm.hh -- PCM passthrough encoder
+barrier.hh -- track change sync barrier
 
 MIT License
 
@@ -26,38 +26,65 @@ DEALINGS IN THE SOFTWARE.
 
 ***/
 
-#ifndef ENCODER_PCM_HH
-#define ENCODER_PCM_HH
+#ifndef BARRIER_HH
+#define BARRIER_HH
 
+#include <condition_variable>
 #include <cstddef>
 #include <memory>
-#include <span>
+#include <mutex>
 
-#include "config.hh"
-#include "encoder/encoder.hh"
-#include "metadata.hh"
-#include "pcmtypes.hh"
-#include "resampler/resampler.hh"
-#include "streamformat.hh"
-#include "types.hh"
+#include "util.hh"
 
 namespace exo {
 
-class PcmEncoder : public exo::BaseEncoder {
-    bool metadata_;
+class BarrierHolder;
+
+class Barrier {
+  private:
+    std::size_t queued_{0};
+    std::size_t listeners_{0};
+    std::size_t visited_{0};
+    std::size_t token_{0};
+
+    std::mutex mutex_;
+    std::condition_variable_any barrier_;
+
+    void increment_() noexcept;
+    void decrement_() noexcept;
 
   public:
-    PcmEncoder(const exo::ConfigObject& config,
-               std::shared_ptr<exo::PcmBuffer> source, exo::PcmFormat pcmFormat,
-               const exo::ResamplerFactory& resamplerFactory,
-               const std::shared_ptr<exo::Barrier>& barrier);
+    inline Barrier() {}
+    EXO_DEFAULT_NONMOVABLE_DEFAULT_DESTRUCTOR(Barrier)
 
-    exo::StreamFormat streamFormat() const noexcept;
+    void sync(std::size_t token) noexcept;
+    void free() noexcept;
 
-    void startTrack(const exo::Metadata& metadata);
-    void pcmBlock(std::size_t frameCount, std::span<const exo::byte> data);
+    friend class exo::BarrierHolder;
+};
+
+class BarrierHolder {
+  private:
+    std::shared_ptr<exo::Barrier> ptr_;
+
+  public:
+    inline BarrierHolder(const std::shared_ptr<exo::Barrier>& barrierPtr)
+        : ptr_(barrierPtr) {
+        if (ptr_)
+            ptr_->increment_();
+    }
+
+    EXO_DEFAULT_NONCOPYABLE(BarrierHolder)
+    inline ~BarrierHolder() noexcept {
+        if (ptr_)
+            ptr_->decrement_();
+    }
+
+    inline const std::shared_ptr<exo::Barrier>& pointer() const noexcept {
+        return ptr_;
+    }
 };
 
 } // namespace exo
 
-#endif /* ENCODER_PCM_HH */
+#endif /* BARRIER_HH */

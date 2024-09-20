@@ -34,6 +34,7 @@ DEALINGS IN THE SOFTWARE.
 #include <unordered_map>
 #include <vector>
 
+#include "barrier.hh"
 #include "broca/broca.hh"
 #include "decoder/decoder.hh"
 #include "encoder/encoder.hh"
@@ -54,6 +55,7 @@ void registerCommands(
 
 void registerOutputs(std::vector<std::unique_ptr<exo::BaseEncoder>>& encoders,
                      std::vector<std::unique_ptr<exo::BaseBroca>>& brocas,
+                     std::vector<std::shared_ptr<exo::Barrier>>& barriers,
                      exo::PcmSplitter& pcmSplitter,
                      const std::vector<exo::OutputConfig>& configs,
                      const exo::PcmBufferConfig& bufferConfig,

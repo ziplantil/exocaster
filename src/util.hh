@@ -69,13 +69,21 @@ namespace exo {
     T(T&&) = delete;                                                           \
     T& operator=(T&&) = delete;
 
-/** Explicitly defaulted copy constructor, copy assignment,
-    move constructor, move assignment, destructor */
-#define EXO_DEFAULT_COPYABLE_DEFAULT_DESTRUCTOR(T)                             \
-    T(const T&) = default;                                                     \
-    T& operator=(const T&) = default;                                          \
-    T(T&&) = default;                                                          \
-    T& operator=(T&&) = default;                                               \
+/** Explicitly deleted copy constructor, copy assignment,
+    move constructor, move assignment */
+#define EXO_DEFAULT_NONMOVABLE(T)                                              \
+    T(const T&) = delete;                                                      \
+    T& operator=(const T&) = delete;                                           \
+    T(T&&) = delete;                                                           \
+    T& operator=(T&&) = delete;
+
+/** Explicitly deleted copy constructor, copy assignment,
+    move constructor, move assignment, explicitly defaulted destructor */
+#define EXO_DEFAULT_NONMOVABLE_DEFAULT_DESTRUCTOR(T)                           \
+    T(const T&) = delete;                                                      \
+    T& operator=(const T&) = delete;                                           \
+    T(T&&) = delete;                                                           \
+    T& operator=(T&&) = delete;                                                \
     ~T() = default;
 
 /** Explicitly defaulted move constructor, move assignment, destructor,

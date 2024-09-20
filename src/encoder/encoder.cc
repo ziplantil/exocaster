@@ -92,14 +92,16 @@ static std::unordered_map<std::string, exo::EncoderImpl> encoders = {
 std::unique_ptr<exo::BaseEncoder>
 createEncoder(const std::string& type, const exo::ConfigObject& config,
               std::shared_ptr<exo::PcmBuffer> source, exo::PcmFormat pcmFormat,
-              const exo::ResamplerFactory& resamplerFactory) {
+              const exo::ResamplerFactory& resamplerFactory,
+              const std::shared_ptr<exo::Barrier>& barrier) {
     auto it = encoders.find(type);
 
     if (it != encoders.end()) {
         switch (it->second) {
 #define ENCODER_DEF(N, T)                                                      \
     case exo::EncoderImpl::N:                                                  \
-        return std::make_unique<T>(config, source, pcmFormat, resamplerFactory);
+        return std::make_unique<T>(config, source, pcmFormat,                  \
+                                   resamplerFactory, barrier);
             ENCODER_DEFS
 #undef ENCODER_DEF
         }
@@ -129,9 +131,11 @@ void BaseEncoder::run() {
     std::array<exo::byte, ENCODER_BUFFER> buffer;
     static_assert(buffer.size() >= exo::MAX_BYTES_PER_FRAME);
     bool track = false;
+    long lastWaitMs = 500;
 
     while (EXO_LIKELY(exo::shouldRun())) {
-        std::shared_ptr<exo::Metadata> metadataPtr = source_->readMetadata();
+        std::shared_ptr<exo::Metadata> metadataPtr =
+            source_->readMetadata(barrierHolder_.pointer());
         if (metadataPtr) {
             if (track)
                 endTrack();
@@ -148,8 +152,12 @@ void BaseEncoder::run() {
             auto waitMs =
                 std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0)
                     .count();
-            if (waitMs >= 500)
+            if (waitMs >= lastWaitMs * 2) {
                 EXO_LOG("buffer underrun? waited %u ms", waitMs);
+                lastWaitMs = waitMs;
+            } else if (waitMs * 2 < lastWaitMs) {
+                lastWaitMs++;
+            }
             pcmBlock(n / pcmFormat_.bytesPerFrame(),
                      std::span<exo::byte>(buffer.begin(), n));
         } else if (EXO_UNLIKELY(source_->closed())) {

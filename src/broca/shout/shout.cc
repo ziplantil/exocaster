@@ -172,7 +172,7 @@ exo::ShoutBroca::ShoutBroca(const exo::ConfigObject& config,
     shoutCopyMetadata(shout, SHOUT_META_DESCRIPTION, config, "description");
     shoutCopyMetadata(shout, SHOUT_META_URL, config, "url");
 
-    double waitThresh = cfg::namedFloat(config, "selfsyncthreshold", 0.05);
+    double waitThresh = cfg::namedFloat(config, "selfsyncthreshold", 0.1);
     selfSync_ = cfg::namedBoolean(config, "selfsync", false);
     syncThreshold_ = static_cast<std::size_t>(waitThresh * frameRate);
 }

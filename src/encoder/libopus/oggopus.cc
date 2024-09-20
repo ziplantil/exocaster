@@ -83,8 +83,9 @@ exo::OpusEncoder::~OpusEncoder() noexcept {
 
 exo::OggOpusEncoder::OggOpusEncoder(
     const exo::ConfigObject& config, std::shared_ptr<exo::PcmBuffer> source,
-    exo::PcmFormat pcmFormat, const exo::ResamplerFactory& resamplerFactory)
-    : BaseEncoder(source, pcmFormat), encoder_(nullptr) {
+    exo::PcmFormat pcmFormat, const exo::ResamplerFactory& resamplerFactory,
+    const std::shared_ptr<exo::Barrier>& barrier)
+    : BaseEncoder(source, pcmFormat, barrier), encoder_(nullptr) {
     bitrate_ = cfg::namedInt<std::int_least32_t>(config, "bitrate", 0);
     complexity_ = cfg::namedInt<std::int_least32_t>(config, "complexity", 10);
 

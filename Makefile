@@ -40,6 +40,7 @@ OBJS := src/queue/queue.o \
 		src/broca/discard.o \
 		src/broca/file.o \
 		src/resampler/resampler.o \
+		src/barrier.o \
 		src/pcmbuffer.o \
 		src/metadata.o \
 		src/serverconfig.o \

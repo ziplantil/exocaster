@@ -95,6 +95,7 @@ struct OutputConfig {
     std::size_t buffer;
     exo::ConfigObject config;
     std::vector<exo::BrocaConfig> broca;
+    std::string barrier;
 
     static OutputConfig read(const exo::ConfigObject& cfg);
 };

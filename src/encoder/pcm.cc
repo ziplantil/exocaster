@@ -37,8 +37,9 @@ namespace exo {
 PcmEncoder::PcmEncoder(const exo::ConfigObject& config,
                        std::shared_ptr<exo::PcmBuffer> source,
                        exo::PcmFormat pcmFormat,
-                       const exo::ResamplerFactory& resamplerFactory)
-    : BaseEncoder(source, pcmFormat) {
+                       const exo::ResamplerFactory& resamplerFactory,
+                       const std::shared_ptr<exo::Barrier>& barrier)
+    : BaseEncoder(source, pcmFormat, barrier) {
     metadata_ = cfg::namedBoolean(config, "metadata", false);
 }
 

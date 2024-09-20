@@ -50,6 +50,13 @@ extern "C" {
 #include <FLAC/stream_encoder.h>
 }
 
+/* libFLAC write callback samples is broken for Ogg FLAC.
+    <https://github.com/xiph/flac/issues/661>
+    <https://github.com/xiph/flac/pull/743> */
+#ifndef EXO_OGGFLAC_SAMPLES_HACK
+#define EXO_OGGFLAC_SAMPLES_HACK 0
+#endif
+
 namespace exo {
 
 struct FlacStreamEncoder
@@ -77,12 +84,16 @@ class OggFlacEncoder : public exo::BaseEncoder {
     exo::PcmSampleFormat flacSampleFormat_;
     std::vector<exo::byte> pcmBuffer_;
     unsigned level_;
+#if EXO_OGGFLAC_SAMPLES_HACK
+    std::uint64_t lastGranulePos_{0};
+#endif
 
   public:
     OggFlacEncoder(const exo::ConfigObject& config,
                    std::shared_ptr<exo::PcmBuffer> source,
                    exo::PcmFormat pcmFormat,
-                   const exo::ResamplerFactory& resamplerFactory);
+                   const exo::ResamplerFactory& resamplerFactory,
+                   const std::shared_ptr<exo::Barrier>& barrier);
 
     exo::StreamFormat streamFormat() const noexcept;
 
