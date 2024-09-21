@@ -90,8 +90,11 @@ static void shoutCopyMetadata(shout_t* shout, const char* shoutMeta,
 exo::ShoutBroca::ShoutBroca(const exo::ConfigObject& config,
                             std::shared_ptr<exo::PacketRingBuffer> source,
                             const exo::StreamFormat& streamFormat,
-                            unsigned long frameRate)
-    : BaseBroca(source, frameRate), syncClock_(frameRate) {
+                            unsigned long frameRate,
+                            const std::shared_ptr<exo::Publisher>& publisher,
+                            std::size_t brocaIndex)
+    : BaseBroca(source, frameRate, publisher, brocaIndex),
+      syncClock_(frameRate) {
     if (!cfg::isObject(config))
         throw std::runtime_error("shout broca needs a config object");
 
@@ -211,7 +214,7 @@ struct ShoutMetadata : public PointerSlot<ShoutMetadata, shout_metadata_t> {
 void exo::ShoutBroca::handleOutOfBandMetadata_(
     exo::PacketRingBuffer::PacketRead& packet) {
     try {
-        auto metadata = exo::readOutOfBandMetadata(packet);
+        auto metadata = exo::readPacketMetadata(packet);
 
         // TODO eventually this should be customizable
         std::ostringstream joiner;
@@ -276,8 +279,12 @@ void exo::ShoutBroca::runImpl() {
                 break;
             }
 
-            if (packet->header.flags & PacketFlags::OutOfBandMetadata) {
+            if (packet->header.flags & PacketFlags::MetadataPacket) {
                 handleOutOfBandMetadata_(*packet);
+                continue;
+            }
+            if (packet->header.flags & PacketFlags::OriginalCommandPacket) {
+                acknowledgeCommand_(*packet);
                 continue;
             }
 

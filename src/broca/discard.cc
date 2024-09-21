@@ -38,8 +38,11 @@ namespace exo {
 DiscardBroca::DiscardBroca(const exo::ConfigObject& config,
                            std::shared_ptr<exo::PacketRingBuffer> source,
                            const exo::StreamFormat& streamFormat,
-                           unsigned long frameRate)
-    : BaseBroca(source, frameRate), frameClock_(frameRate) {
+                           unsigned long frameRate,
+                           const std::shared_ptr<exo::Publisher>& publisher,
+                           std::size_t brocaIndex)
+    : BaseBroca(source, frameRate, publisher, brocaIndex),
+      frameClock_(frameRate) {
     log_ = cfg::namedBoolean(config, "log", false);
     wait_ = cfg::namedBoolean(config, "wait", false);
 }
@@ -50,9 +53,14 @@ void DiscardBroca::runImpl() {
         auto packet = source_->readPacket();
         if (!packet.has_value())
             break;
+        if (packet->header.flags & PacketFlags::OriginalCommandPacket) {
+            acknowledgeCommand_(*packet);
+            continue;
+        }
 
-        bool wait =
-            wait_ && !(packet->header.flags & PacketFlags::OutOfBandMetadata);
+        bool wait = wait_ && !(packet->header.flags &
+                               (PacketFlags::MetadataPacket |
+                                PacketFlags::OriginalCommandPacket));
         if (log_) {
             if (wait)
                 EXO_LOG("discarding %zu bytes (%zu frames, "

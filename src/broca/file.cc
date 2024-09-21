@@ -45,8 +45,10 @@ namespace exo {
 FileBroca::FileBroca(const exo::ConfigObject& config,
                      std::shared_ptr<exo::PacketRingBuffer> source,
                      const exo::StreamFormat& streamFormat,
-                     unsigned long frameRate)
-    : BaseBroca(source, frameRate) {
+                     unsigned long frameRate,
+                     const std::shared_ptr<exo::Publisher>& publisher,
+                     std::size_t brocaIndex)
+    : BaseBroca(source, frameRate, publisher, brocaIndex) {
     if (!cfg::isString(config) && !cfg::isObject(config))
         throw exo::InvalidConfigError("'file' broca needs a string or "
                                       "an object as config");
@@ -78,8 +80,12 @@ void FileBroca::runImpl() {
         auto packet = source_->readPacket();
         if (!packet.has_value())
             break;
-        if (packet->header.frameCount & PacketFlags::OutOfBandMetadata) {
+        if (packet->header.flags & PacketFlags::MetadataPacket) {
             packet->skipFull();
+            continue;
+        }
+        if (packet->header.flags & PacketFlags::OriginalCommandPacket) {
+            acknowledgeCommand_(*packet);
             continue;
         }
 

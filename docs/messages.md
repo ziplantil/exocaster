@@ -39,10 +39,12 @@ single line of text, with one JSON event per line.
 
 Besides `type`, these events have the following fields:
 
-* `source`: Either the string `decoder`, if the command was acknowledged by
-  the decoder, or the string `encoder`, if acknowledged by an encoder.
-* `index`: Present only if `source` is `encoder`. This is the index of the
-  encoder. `0` represents the first encoder in Exocaster's configuration,
-  `1` represents the second, and so on.
+* `source`: One of the following:
+  * `decoder`, if the command was acknowledged by the decoder
+  * `encoder`, if the command was acknowledged by an encoder,
+  * `broca`, if the command was acknowledged by a broca.
+* `index`: The index of the encoder or broca. `0` represents the first encoder
+  or broca in Exocaster's configuration, `1` represents the second, and so on.
+  This value is not present if `source` is `decoder`.
 * `command`: The command that was acknowledged. This is a copy of the
   JSON object that was passed to Exocaster as a command.

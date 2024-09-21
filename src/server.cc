@@ -243,7 +243,8 @@ void Server::init() {
     jobs_ = std::make_unique<exo::DecoderJobQueue>(JOB_QUEUE_SIZE, pcm_);
     exo::registerCommands(cmd_, config_.commands, format_);
     exo::registerOutputs(enc_, broca_, barriers_, *pcm_, config_.outputs,
-                         config_.pcmbuffer, format_, config_.resampler);
+                         config_.pcmbuffer, format_, config_.resampler,
+                         publisher_);
     commandQueue_ = std::make_unique<exo::CommandQueue>(
         exo::createReadQueue(config_.shell, instanceId_));
     for (const auto& publish : config_.publish)

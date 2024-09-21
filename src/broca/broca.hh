@@ -37,7 +37,9 @@ DEALINGS IN THE SOFTWARE.
 #include <string>
 
 #include "config.hh"
+#include "metadata.hh"
 #include "packet.hh"
+#include "publisher.hh"
 #include "streamformat.hh"
 #include "util.hh"
 
@@ -56,7 +58,16 @@ class BaseBroca {
   protected:
     std::shared_ptr<exo::PacketRingBuffer> source_;
     unsigned long frameRate_;
+    std::shared_ptr<exo::Publisher> publisher_;
+    std::size_t brocaIndex_;
+
     virtual void runImpl() = 0;
+
+    void acknowledgeCommand_(exo::PacketRingBuffer::PacketRead& packet) {
+        if (publisher_)
+            publisher_->acknowledgeBrocaCommand(brocaIndex_,
+                                                exo::readPacketCommand(packet));
+    }
 
   public:
     static constexpr std::size_t DEFAULT_BROCA_BUFFER = 4096;
@@ -65,11 +76,16 @@ class BaseBroca {
     BaseBroca(const exo::ConfigObject& config,
               std::shared_ptr<exo::PacketRingBuffer> source,
               const exo::StreamFormat& streamFormat,
-              unsigned long frameRate);
+              unsigned long frameRate,
+              const std::shared_ptr<exo::Publisher>& publisher,
+              std::size_t brocaIndex);
     */
     inline BaseBroca(std::shared_ptr<exo::PacketRingBuffer> source,
-                     unsigned long frameRate)
-        : source_(source), frameRate_(frameRate) {}
+                     unsigned long frameRate,
+                     const std::shared_ptr<exo::Publisher>& publisher,
+                     std::size_t brocaIndex)
+        : source_(source), frameRate_(frameRate), publisher_(publisher),
+          brocaIndex_(brocaIndex) {}
     EXO_DEFAULT_NONCOPYABLE_VIRTUAL_DESTRUCTOR(BaseBroca)
 
     void run();
@@ -78,7 +94,9 @@ class BaseBroca {
 std::unique_ptr<exo::BaseBroca>
 createBroca(const std::string& type, const exo::ConfigObject& config,
             std::shared_ptr<exo::PacketRingBuffer> source,
-            const exo::StreamFormat& streamFormat, std::size_t frameRate);
+            const exo::StreamFormat& streamFormat, std::size_t frameRate,
+            const std::shared_ptr<exo::Publisher>& publisher,
+            std::size_t brocaIndex);
 
 void printBrocaOptions(std::ostream& stream);
 

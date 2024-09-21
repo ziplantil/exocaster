@@ -94,8 +94,10 @@ PortAudioStream::~PortAudioStream() noexcept {
 PortAudioBroca::PortAudioBroca(const exo::ConfigObject& config,
                                std::shared_ptr<exo::PacketRingBuffer> source,
                                const exo::StreamFormat& streamFormat,
-                               unsigned long frameRate)
-    : BaseBroca(source, frameRate), stream_(nullptr) {
+                               unsigned long frameRate,
+                               const std::shared_ptr<exo::Publisher>& publisher,
+                               std::size_t brocaIndex)
+    : BaseBroca(source, frameRate, publisher, brocaIndex), stream_(nullptr) {
     PaError err = paNoError;
     PaStreamParameters streamParameters;
 
@@ -171,12 +173,25 @@ int PortAudioBroca::streamCallback(const void* input, void* output,
                                    PaStreamCallbackFlags statusFlags) {
     auto destination = reinterpret_cast<unsigned char*>(output);
     std::memset(output, 0, frameCount * bytesPerFrame_);
-    std::size_t n = source_->readDirectFull(packet_, destination,
-                                            frameCount * bytesPerFrame_);
-    if (EXO_UNLIKELY(!n))
-        return paComplete;
-    if (EXO_UNLIKELY(!exo::shouldRun()))
-        return paComplete;
+    unsigned char* destinationEnd = destination + frameCount * bytesPerFrame_;
+    destination += packet_.readFull(
+        destination, static_cast<std::size_t>(destinationEnd - destination));
+
+    while (destination < destinationEnd) {
+        if (EXO_UNLIKELY(!exo::shouldRun()))
+            return paComplete;
+        auto maybePacket = source_->readPacket();
+        if (EXO_UNLIKELY(!maybePacket.has_value()))
+            return paComplete;
+        auto& packet = *maybePacket;
+
+        std::size_t n = packet_.readFull(
+            destination,
+            static_cast<std::size_t>(destinationEnd - destination));
+        destination += n;
+        packet_ = std::move(packet);
+    }
+
     return paContinue;
 }
 

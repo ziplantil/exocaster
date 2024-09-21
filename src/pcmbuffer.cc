@@ -32,6 +32,7 @@ DEALINGS IN THE SOFTWARE.
 #include <thread>
 #include <utility>
 
+#include "barrier.hh"
 #include "log.hh"
 #include "pcmbuffer.hh"
 #include "publisher.hh"
@@ -56,12 +57,12 @@ PcmBuffer::PcmBuffer(std::size_t subindex, const exo::PcmFormat& pcmFormat,
                                config.skipfactor * SKIP_FACTOR_FRAC_BITS)) /
                   pcmFormat_.bytesPerFrame()) {}
 
-std::shared_ptr<exo::Metadata>
-PcmBuffer::readMetadata(const std::shared_ptr<exo::Barrier>& barrierPtr) {
+std::optional<exo::PcmBufferTrackChange>
+PcmBuffer::readTrackChange(const std::shared_ptr<exo::Barrier>& barrierPtr) {
     std::unique_lock lock(mutex_);
     // some of this song still left, or no more metadata changes queued
     if (songHead_ == songTail_ || pcmLeft_)
-        return std::move(empty_);
+        return {};
     // read next metadata and return it
     auto index = songTail_;
     songTail_ = (songTail_ + 1) % songChanges_.size();
@@ -74,7 +75,7 @@ PcmBuffer::readMetadata(const std::shared_ptr<exo::Barrier>& barrierPtr) {
     if (barrierPtr)
         barrierPtr->sync(totalAck);
     publisher_->acknowledgeEncoderCommand(subindex_, command);
-    return metadata;
+    return {{command, metadata}};
 }
 
 std::size_t PcmBuffer::readPcm(std::span<exo::byte> destination) {
@@ -97,8 +98,8 @@ std::size_t PcmBuffer::readPcm(std::span<exo::byte> destination) {
     return canRead;
 }
 
-void PcmBuffer::writeMetadata(std::shared_ptr<exo::ConfigObject> command,
-                              std::shared_ptr<exo::Metadata> metadata) {
+void PcmBuffer::writeTrackChange(std::shared_ptr<exo::ConfigObject> command,
+                                 std::shared_ptr<exo::Metadata> metadata) {
     if (closed_)
         return;
     std::unique_lock lock(mutex_);
@@ -206,7 +207,7 @@ void PcmSplitter::metadata(std::shared_ptr<exo::ConfigObject> command,
     auto metadataPtr = std::make_shared<exo::Metadata>(metadata);
     publisher_->acknowledgeDecoderCommand(command);
     for (const auto& buffer : buffers_)
-        buffer->writeMetadata(command, metadataPtr);
+        buffer->writeTrackChange(command, metadataPtr);
 }
 
 void PcmSplitter::pcm(std::span<const exo::byte> data) {

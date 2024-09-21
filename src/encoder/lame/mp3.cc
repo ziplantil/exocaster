@@ -158,9 +158,9 @@ void Mp3Encoder::startTrack(const exo::Metadata& metadata) {
     granule_ = 0;
     init_ = true;
 
-    auto metaStr = exo::writeOutOfBandMetadata(metadata);
+    auto metaStr = exo::writePacketMetadata(metadata);
     packet(
-        PacketFlags::OutOfBandMetadata, 0,
+        PacketFlags::MetadataPacket, 0,
         {reinterpret_cast<const exo::byte*>(metaStr.data()), metaStr.size()});
 }
 

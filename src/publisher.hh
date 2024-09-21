@@ -42,10 +42,13 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
-struct CommandAcknowledgeEvent {
-    static constexpr std::size_t NO_ENCODER = static_cast<std::size_t>(-1);
+enum class CommandAcknowledgeEventSource { Decoder, Encoder, Broca };
 
-    std::size_t encoderIndex;
+struct CommandAcknowledgeEvent {
+    static constexpr std::size_t NO_INDEX = static_cast<std::size_t>(-1);
+
+    exo::CommandAcknowledgeEventSource source;
+    std::size_t index;
     std::shared_ptr<exo::ConfigObject> command;
 };
 
@@ -82,6 +85,8 @@ class Publisher {
     void acknowledgeDecoderCommand(std::shared_ptr<exo::ConfigObject> command);
     void acknowledgeEncoderCommand(std::size_t encoderIndex,
                                    std::shared_ptr<exo::ConfigObject> command);
+    void acknowledgeBrocaCommand(std::size_t brocaIndex,
+                                 std::shared_ptr<exo::ConfigObject> command);
 };
 
 } // namespace exo

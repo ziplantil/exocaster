@@ -65,13 +65,15 @@ void registerOutputs(std::vector<std::unique_ptr<exo::BaseEncoder>>& encoders,
                      const std::vector<exo::OutputConfig>& configs,
                      const exo::PcmBufferConfig& bufferConfig,
                      const exo::PcmFormat& pcmFormat,
-                     const exo::ResamplerConfig& resamplerConfig) {
+                     const exo::ResamplerConfig& resamplerConfig,
+                     std::shared_ptr<exo::Publisher> publisher) {
     unsigned totalBrocas = 0;
     exo::StandardResamplerFactory resamplerFactory(
         resamplerConfig.type, resamplerConfig.config, pcmFormat);
     std::unordered_map<std::string, std::shared_ptr<exo::Barrier>>
         barriersByName;
 
+    std::size_t brocaIndex = 0;
     for (const auto& encoderConfig : configs) {
         if (encoderConfig.broca.empty()) {
             pcmSplitter.skipIndex();
@@ -104,9 +106,9 @@ void registerOutputs(std::vector<std::unique_ptr<exo::BaseEncoder>>& encoders,
                 std::make_shared<exo::PacketRingBuffer>(encoderConfig.buffer);
             if (!encodedBuffer)
                 throw std::bad_alloc();
-            auto broca =
-                exo::createBroca(brocaConfig.type, brocaConfig.config,
-                                 encodedBuffer, streamFormat, frameRate);
+            auto broca = exo::createBroca(brocaConfig.type, brocaConfig.config,
+                                          encodedBuffer, streamFormat,
+                                          frameRate, publisher, brocaIndex++);
             encoder->addSink(encodedBuffer);
             brocas.push_back(std::move(broca));
             if (totalBrocas++ > exo::MAX_BROCAS)

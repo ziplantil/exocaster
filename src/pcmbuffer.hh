@@ -35,6 +35,7 @@ DEALINGS IN THE SOFTWARE.
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -57,6 +58,11 @@ struct PcmBufferRow {
 };
 
 static constexpr std::uint_least32_t SKIP_FACTOR_FRAC_BITS = 16;
+
+struct PcmBufferTrackChange {
+    std::shared_ptr<exo::ConfigObject> command;
+    std::shared_ptr<exo::Metadata> metadata;
+};
 
 class PcmBuffer {
     exo::RingBuffer<byte> pcm_;
@@ -90,12 +96,12 @@ class PcmBuffer {
               std::size_t bufferSize, std::shared_ptr<exo::Publisher> publisher,
               const exo::PcmBufferConfig& config);
 
-    std::shared_ptr<exo::Metadata>
-    readMetadata(const std::shared_ptr<exo::Barrier>& barrierPtr);
+    std::optional<exo::PcmBufferTrackChange>
+    readTrackChange(const std::shared_ptr<exo::Barrier>& barrierPtr);
     std::size_t readPcm(std::span<exo::byte> destination);
 
-    void writeMetadata(std::shared_ptr<exo::ConfigObject> command,
-                       std::shared_ptr<exo::Metadata> metadata);
+    void writeTrackChange(std::shared_ptr<exo::ConfigObject> command,
+                          std::shared_ptr<exo::Metadata> metadata);
     void writePcm(std::span<const exo::byte> data);
 
     void close() noexcept;

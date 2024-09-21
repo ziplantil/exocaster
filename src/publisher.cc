@@ -52,11 +52,20 @@ static bool convertEvent(const exo::PublishedEvent& event,
             return false;
         nlohmann::json message;
         message["type"] = "acknowledge";
-        if (e.encoderIndex == exo::CommandAcknowledgeEvent::NO_ENCODER) {
+        switch (e.source) {
+        case exo::CommandAcknowledgeEventSource::Decoder:
             message["source"] = "decoder";
-        } else {
+            break;
+        case exo::CommandAcknowledgeEventSource::Encoder:
             message["source"] = "encoder";
-            message["index"] = e.encoderIndex;
+            message["index"] = e.index;
+            break;
+        case exo::CommandAcknowledgeEventSource::Broca:
+            message["source"] = "broca";
+            message["index"] = e.index;
+            break;
+        default:
+            EXO_UNREACHABLE;
         }
         message["command"] = *e.command;
         serializeJson(stream, message);
@@ -90,15 +99,27 @@ void Publisher::push_(const exo::PublishedEvent& event) {
 void Publisher::acknowledgeDecoderCommand(
     std::shared_ptr<exo::ConfigObject> command) {
     auto event = exo::CommandAcknowledgeEvent{
-        .encoderIndex = exo::CommandAcknowledgeEvent::NO_ENCODER,
+        .source = CommandAcknowledgeEventSource::Decoder,
+        .index = exo::CommandAcknowledgeEvent::NO_INDEX,
         .command = command};
     push_(event);
 }
 
 void Publisher::acknowledgeEncoderCommand(
     std::size_t encoderIndex, std::shared_ptr<exo::ConfigObject> command) {
-    auto event = exo::CommandAcknowledgeEvent{.encoderIndex = encoderIndex,
-                                              .command = command};
+    auto event = exo::CommandAcknowledgeEvent{
+        .source = CommandAcknowledgeEventSource::Encoder,
+        .index = encoderIndex,
+        .command = command};
+    push_(event);
+}
+
+void Publisher::acknowledgeBrocaCommand(
+    std::size_t brocaIndex, std::shared_ptr<exo::ConfigObject> command) {
+    auto event = exo::CommandAcknowledgeEvent{
+        .source = CommandAcknowledgeEventSource::Broca,
+        .index = brocaIndex,
+        .command = command};
     push_(event);
 }
 

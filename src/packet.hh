@@ -38,12 +38,14 @@ DEALINGS IN THE SOFTWARE.
 
 #include "buffer.hh"
 #include "types.hh"
+#include "util.hh"
 
 namespace exo {
 
 namespace PacketFlags {
 static constexpr unsigned StartOfTrack = 1;
-static constexpr unsigned OutOfBandMetadata = 2;
+static constexpr unsigned MetadataPacket = 2;
+static constexpr unsigned OriginalCommandPacket = 4;
 }; // namespace PacketFlags
 
 struct PacketHeader {
@@ -112,6 +114,7 @@ struct PacketRingBuffer : public exo::RingBufferWithHeader<exo::PacketHeader> {
 
       public:
         inline PacketRead() noexcept : buffer_(nullptr), left_(0), header() {}
+        EXO_DEFAULT_NONCOPYABLE_DEFAULT_DESTRUCTOR(PacketRead)
 
         bool hasData() const noexcept {
             return left_ > 0 && !buffer_->closed();
@@ -190,95 +193,6 @@ struct PacketRingBuffer : public exo::RingBufferWithHeader<exo::PacketHeader> {
         writeHeader(exo::PacketHeader{
             .dataSize = data.size(), .frameCount = frameCount, .flags = flags});
         writeFull(data.data(), data.size());
-    }
-
-    /** Reads bytes into the iterator. This bypasses the packet system
-        and will read the data from them as necessary, ignoring other
-        packet headers. A reference to a PacketRead object must be provided
-        to keep track of remaining bytes in the current packet.
-
-        Returns the number of bytes read. This read is non-blocking.
-
-        If there were not enough values, the remaining values
-        are not affected.
-
-        Out-of-band packets are skipped. */
-    template <typename OutputIt>
-    std::size_t readDirectPartial(PacketRead& cache, OutputIt d_first,
-                                  std::size_t count) {
-        while (!cache.hasData()) {
-            auto nextPacket = readPacket();
-            if (!nextPacket.has_value())
-                return 0;
-            cache = std::move(nextPacket.value());
-            if (cache.header.flags & PacketFlags::OutOfBandMetadata)
-                cache.skipFull();
-        }
-        return cache.readPartial(d_first, count);
-    }
-
-    /** Reads bytes into the iterator. This bypasses the packet system
-        and will read the data from them as necessary, ignoring other
-        packet headers. A reference to a PacketRead object must be provided
-        to keep track of remaining bytes in the current packet.
-
-        Returns the number of elements read. This read is blocking if there
-        are no bytes, but otherwise will not block to read the buffer
-        until full.
-
-        If there were not enough values, the remaining values
-        are not affected.
-
-        Out-of-band packets are skipped.  */
-    template <typename OutputIt>
-    std::size_t readDirectSome(PacketRead& cache, OutputIt d_first,
-                               std::size_t count) {
-        while (!cache.hasData()) {
-            auto nextPacket = readPacket();
-            if (!nextPacket.has_value())
-                return 0;
-            cache = std::move(nextPacket.value());
-            if (cache.header.flags & PacketFlags::OutOfBandMetadata)
-                cache.skipFull();
-        }
-        return cache.readSome(d_first, count);
-    }
-
-    /** Reads bytes into the iterator. This bypasses the packet system
-        and will read the data from them as necessary, ignoring other
-        packet headers. A reference to a PacketRead object must be provided
-        to keep track of remaining bytes in the current packet.
-
-        Returns the number of bytes read. This read is blocking until the
-        buffer has been fully read. It may return early and return less than
-        requested only if the buffer is closed.
-
-        If there were not enough values, the remaining values
-        are not affected.
-
-        Out-of-band packets are skipped. */
-    template <typename OutputIt>
-    std::size_t readDirectFull(PacketRead& cache, OutputIt d_first,
-                               std::size_t count) {
-        std::size_t n = 0;
-        auto dst = d_first;
-        for (;;) {
-            if (cache.header.flags & PacketFlags::OutOfBandMetadata)
-                cache.skipFull();
-            else {
-                std::size_t b = cache.readFull(dst, count);
-                n += b, dst += b, count -= b;
-                if (!count)
-                    break;
-            }
-
-            auto nextPacket = readPacket();
-            if (!nextPacket.has_value())
-                break;
-
-            cache = std::move(nextPacket.value());
-        }
-        return n;
     }
 };
 

@@ -33,11 +33,13 @@ DEALINGS IN THE SOFTWARE.
 #include <bit>
 #include <cstddef>
 #include <locale>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
+#include "config.hh"
 #include "packet.hh"
 
 namespace exo {
@@ -97,8 +99,13 @@ using CaseInsensitiveMap =
 
 using Metadata = std::vector<std::pair<std::string, std::string>>;
 
-std::string writeOutOfBandMetadata(const exo::Metadata& metadata);
-exo::Metadata readOutOfBandMetadata(exo::PacketRingBuffer::PacketRead& packet);
+std::string writePacketMetadata(const exo::Metadata& metadata);
+exo::Metadata readPacketMetadata(exo::PacketRingBuffer::PacketRead& packet);
+
+std::string
+writePacketCommand(const std::shared_ptr<exo::ConfigObject>& metadata);
+std::shared_ptr<exo::ConfigObject>
+readPacketCommand(exo::PacketRingBuffer::PacketRead& packet);
 
 } // namespace exo
 

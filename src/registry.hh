@@ -60,7 +60,8 @@ void registerOutputs(std::vector<std::unique_ptr<exo::BaseEncoder>>& encoders,
                      const std::vector<exo::OutputConfig>& configs,
                      const exo::PcmBufferConfig& bufferConfig,
                      const exo::PcmFormat& pcmFormat,
-                     const exo::ResamplerConfig& resamplerConfig);
+                     const exo::ResamplerConfig& resamplerConfig,
+                     std::shared_ptr<exo::Publisher> publisher);
 
 std::unique_ptr<exo::BaseReadQueue>
 createReadQueue(const exo::QueueConfig& queue, const std::string& instanceId);

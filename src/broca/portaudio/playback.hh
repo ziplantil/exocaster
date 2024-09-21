@@ -71,7 +71,9 @@ class PortAudioBroca : public exo::BaseBroca {
     PortAudioBroca(const exo::ConfigObject& config,
                    std::shared_ptr<exo::PacketRingBuffer> source,
                    const exo::StreamFormat& streamFormat,
-                   unsigned long frameRate);
+                   unsigned long frameRate,
+                   const std::shared_ptr<exo::Publisher>& publisher,
+                   std::size_t brocaIndex);
 
     int streamCallback(const void* input, void* output,
                        unsigned long frameCount,

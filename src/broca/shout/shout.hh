@@ -29,6 +29,7 @@ DEALINGS IN THE SOFTWARE.
 #ifndef BROCA_SHOUT_SHOUT_HH
 #define BROCA_SHOUT_SHOUT_HH
 
+#include <cstddef>
 #include <memory>
 
 #include "broca/broca.hh"
@@ -74,7 +75,9 @@ class ShoutBroca : public exo::BaseBroca {
   public:
     ShoutBroca(const exo::ConfigObject& config,
                std::shared_ptr<exo::PacketRingBuffer> source,
-               const exo::StreamFormat& streamFormat, unsigned long frameRate);
+               const exo::StreamFormat& streamFormat, unsigned long frameRate,
+               const std::shared_ptr<exo::Publisher>& publisher,
+               std::size_t brocaIndex);
 };
 
 } // namespace exo

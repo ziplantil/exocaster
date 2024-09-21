@@ -74,7 +74,8 @@ class BaseEncoder {
     BaseEncoder(const exo::ConfigObject& config,
                 std::shared_ptr<exo::PcmBuffer> source,
                 exo::PcmFormat pcmFormat,
-                const exo::ResamplerFactory& resamplerFactory);
+                const exo::ResamplerFactory& resamplerFactory,
+                const std::shared_ptr<exo::Barrier>& barrier);
     */
     inline BaseEncoder(std::shared_ptr<exo::PcmBuffer> source,
                        exo::PcmFormat pcmFormat,

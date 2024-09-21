@@ -29,6 +29,7 @@ DEALINGS IN THE SOFTWARE.
 #ifndef BROCA_DISCARD_HH
 #define BROCA_DISCARD_HH
 
+#include <cstddef>
 #include <memory>
 
 #include "broca/broca.hh"
@@ -49,8 +50,9 @@ class DiscardBroca : public exo::BaseBroca {
   public:
     DiscardBroca(const exo::ConfigObject& config,
                  std::shared_ptr<exo::PacketRingBuffer> source,
-                 const exo::StreamFormat& streamFormat,
-                 unsigned long frameRate);
+                 const exo::StreamFormat& streamFormat, unsigned long frameRate,
+                 const std::shared_ptr<exo::Publisher>& publisher,
+                 std::size_t brocaIndex);
 };
 
 } // namespace exo

@@ -31,12 +31,13 @@ DEALINGS IN THE SOFTWARE.
 #include <string_view>
 
 #include "metadata.hh"
+#include "packetstream.hh"
 #include "types.hh"
 
 namespace exo {
 
-/** Generates a std:;string for out-of-band metadata. */
-std::string writeOutOfBandMetadata(const exo::Metadata& metadata) {
+/** Generates a std::string for out-of-band metadata. */
+std::string writePacketMetadata(const exo::Metadata& metadata) {
     std::ostringstream metadataJoined;
     // header
     metadataJoined << "OOBM";
@@ -47,7 +48,7 @@ std::string writeOutOfBandMetadata(const exo::Metadata& metadata) {
 }
 
 /** Reads out-of-band metadata from a packet. */
-exo::Metadata readOutOfBandMetadata(exo::PacketRingBuffer::PacketRead& packet) {
+exo::Metadata readPacketMetadata(exo::PacketRingBuffer::PacketRead& packet) {
     exo::byte buffer[256];
     if (packet.readFull(buffer, 4) < 4)
         return {}; // header incomplete
@@ -89,6 +90,29 @@ exo::Metadata readOutOfBandMetadata(exo::PacketRingBuffer::PacketRead& packet) {
     }
 
     return meta;
+}
+
+std::string
+writePacketCommand(const std::shared_ptr<exo::ConfigObject>& metadata) {
+    std::ostringstream metadataJoined;
+    // header
+    metadataJoined << "OOBC";
+    metadataJoined << *metadata;
+    return metadataJoined.str();
+}
+
+std::shared_ptr<exo::ConfigObject>
+readPacketCommand(exo::PacketRingBuffer::PacketRead& packet) {
+    exo::byte buffer[4];
+    if (packet.readFull(buffer, 4) < 4)
+        return {}; // header incomplete
+    if (std::memcmp(buffer, "OOBC", 4))
+        return {}; // header mismatch
+
+    auto config = std::make_shared<exo::ConfigObject>();
+    exo::PacketInputStream stream(packet);
+    stream >> *config;
+    return config;
 }
 
 } // namespace exo

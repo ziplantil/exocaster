@@ -34,6 +34,7 @@ DEALINGS IN THE SOFTWARE.
 
 #include "encoder/pcm.hh"
 #include "log.hh"
+#include "metadata.hh"
 #include "packet.hh"
 #include "pcmbuffer.hh"
 #include "server.hh"
@@ -134,15 +135,20 @@ void BaseEncoder::run() {
     long lastWaitMs = 500;
 
     while (EXO_LIKELY(exo::shouldRun())) {
-        std::shared_ptr<exo::Metadata> metadataPtr =
-            source_->readMetadata(barrierHolder_.pointer());
-        if (metadataPtr) {
+        auto maybeTrackChange =
+            source_->readTrackChange(barrierHolder_.pointer());
+        if (maybeTrackChange.has_value()) {
+            auto& trackChange = *maybeTrackChange;
             if (track)
                 endTrack();
-            startTrack(*metadataPtr);
+            auto commandStr = exo::writePacketCommand(trackChange.command);
+            packet(PacketFlags::OriginalCommandPacket, 0,
+                   {reinterpret_cast<const exo::byte*>(commandStr.data()),
+                    commandStr.size()});
+            startTrack(*trackChange.metadata);
             startOfTrack_ = true;
             track = true;
-            metadataPtr = nullptr;
+            maybeTrackChange.reset();
         }
 
         auto t0 = std::chrono::steady_clock::now();
