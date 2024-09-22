@@ -425,6 +425,9 @@ T namedUInt(const exo::ConfigObject& c, const std::string& name, T fallback) {
     return cfg::rangeCheckUInt_<T>(cfg::namedUIntMax(c, name, fallback));
 }
 
+/** Returns the length of an array object. The object must be an array. */
+inline std::size_t arrayLength(const exo::ConfigObject& c) { return c.size(); }
+
 /** Returns something that can be iterated to iterate over the items
     in a ConfigObject that is an array. */
 inline const auto& iterateArray(const exo::ConfigObject& c) { return c; }

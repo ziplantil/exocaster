@@ -195,6 +195,8 @@ LavcDecoder::LavcDecoder(const exo::ConfigObject& config,
         cfg::namedBoolean(config, "metadataBlockPicture", false);
     params_.metadataBlockPictureMaxSize =
         cfg::namedUInt<unsigned>(config, "metadataBlockPictureMaxSize", 256);
+    params_.addMetadataEnabled =
+        cfg::namedBoolean(config, "addMetadataEnabled", true);
 }
 
 std::optional<std::unique_ptr<BaseDecodeJob>>
@@ -207,6 +209,8 @@ LavcDecoder::createJob(const exo::ConfigObject& request,
     }
 
     std::string filePath;
+    exo::Metadata addMetadata;
+
     if (cfg::isObject(request)) {
         if (!cfg::hasString(request, "file")) {
             EXO_LOG("lavc decoder: "
@@ -214,21 +218,37 @@ LavcDecoder::createJob(const exo::ConfigObject& request,
             return {};
         }
         filePath = cfg::namedString(request, "file");
+
+        if (params_.addMetadataEnabled && cfg::hasArray(request, "addMetadata")) {
+            auto pairs = cfg::key(request, "addMetadata");
+            for (const auto& pair : cfg::iterateArray(pairs)) {
+                if (cfg::isArray(pair) && cfg::arrayLength(pair) == 2) {
+                    const auto& pairKey = cfg::index(pair, 0);
+                    const auto& pairValue = cfg::index(pair, 1);
+                    if (cfg::isString(pairKey) && cfg::isString(pairValue)) {
+                        addMetadata.push_back(
+                            {cfg::getString(pairKey), cfg::getString(pairValue)});
+                    }
+                }
+            }
+        }
     } else {
         filePath = cfg::getString(request);
     }
 
     return {std::make_unique<exo::LavcDecodeJob>(
-        sink_, pcmFormat_, std::move(command), filePath, params_)};
+        sink_, pcmFormat_, std::move(command), filePath, std::move(addMetadata),
+        params_)};
 }
 
 LavcDecodeJob::LavcDecodeJob(std::shared_ptr<exo::PcmSplitter> sink,
                              exo::PcmFormat pcmFormat,
                              std::shared_ptr<exo::ConfigObject> command,
                              const std::string& filePath,
+                             exo::Metadata&& addMetadata,
                              const exo::LavcDecodeParams& params)
     : BaseDecodeJob(sink, pcmFormat, command), filePath_(filePath),
-      params_(params) {
+      addMetadata_(std::move(addMetadata)), params_(params) {
     decltype(AV_CH_LAYOUT_MONO) formatChannels;
 
     switch (pcmFormat_.channels) {
@@ -337,9 +357,12 @@ void LavcDecodeJob::init() {
     // ...and the codec
     readMetadata_(formatContext_->streams[streamIndex]->metadata);
 
-    if (params_.metadataBlockPicture) {
+    if (params_.metadataBlockPicture)
         scanForAlbumArt_();
-    }
+
+    for (auto&& pair : addMetadata_)
+        metadata_.push_back(std::move(pair));
+    addMetadata_.clear();
 
     // TODO: we do not read metadata from later on in the stream right now.
     // should we? it's probably not relevant in most cases

@@ -11,6 +11,12 @@ libavfilter, libavutil, libswscale and libswresample.
 Either a string or a JSON object. If an object, the fields are:
 
 * `file` (required): The path to the file to decode, as a string.
+* `addMetadata` (optional): This can be used to provide additional fields
+  for the metadata. It only works if `addMetadataEnabled` is set to `true`
+  in the decoder configuration. The value should be a JSON array of
+  key-value pairs (both strings),
+  e.g. `[ [ "key", "value" ], [ "key2", "value2" ] ]`.
+  The default value is to not add anything.
 
 If a string, it is taken as the `file` parameter.
 
@@ -43,5 +49,7 @@ Either `null` or a JSON object. If an object, the fields are:
 * `metadataBlockPictureMaxSize` (optional): If the width or height of the
   embedded `METADATA_BLOCK_PICTURE` image would be larger in pixels
   than this integer, it will be resized down. (Default: 256)
+* `addMetadataEnabled` (optional): Whether `addMetadata` is recognized in
+  incoming commands. If `false`, they are ignored. (Default: `true`)
 
 If `null`, default values are used.
