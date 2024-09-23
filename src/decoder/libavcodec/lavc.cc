@@ -219,15 +219,16 @@ LavcDecoder::createJob(const exo::ConfigObject& request,
         }
         filePath = cfg::namedString(request, "file");
 
-        if (params_.addMetadataEnabled && cfg::hasArray(request, "addMetadata")) {
+        if (params_.addMetadataEnabled &&
+            cfg::hasArray(request, "addMetadata")) {
             auto pairs = cfg::key(request, "addMetadata");
             for (const auto& pair : cfg::iterateArray(pairs)) {
                 if (cfg::isArray(pair) && cfg::arrayLength(pair) == 2) {
                     const auto& pairKey = cfg::index(pair, 0);
                     const auto& pairValue = cfg::index(pair, 1);
                     if (cfg::isString(pairKey) && cfg::isString(pairValue)) {
-                        addMetadata.push_back(
-                            {cfg::getString(pairKey), cfg::getString(pairValue)});
+                        addMetadata.push_back({cfg::getString(pairKey),
+                                               cfg::getString(pairValue)});
                     }
                 }
             }

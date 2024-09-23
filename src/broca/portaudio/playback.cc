@@ -35,6 +35,7 @@ DEALINGS IN THE SOFTWARE.
 
 #include "broca/portaudio/playback.hh"
 #include "log.hh"
+#include "packet.hh"
 #include "pcmtypes.hh"
 #include "server.hh"
 #include "util.hh"
@@ -178,20 +179,24 @@ int PortAudioBroca::streamCallback(const void* input, void* output,
         destination, static_cast<std::size_t>(destinationEnd - destination));
 
     while (destination < destinationEnd) {
-        if (EXO_UNLIKELY(!exo::shouldRun()))
-            return paComplete;
         auto maybePacket = source_->readPacket();
         if (EXO_UNLIKELY(!maybePacket.has_value()))
             return paComplete;
         auto& packet = *maybePacket;
+        if (packet.header.flags & (PacketFlags::MetadataPacket |
+                                   PacketFlags::OriginalCommandPacket)) {
+            packet.skipFull();
+            continue;
+        }
 
-        std::size_t n = packet_.readFull(
+        destination += packet.readFull(
             destination,
             static_cast<std::size_t>(destinationEnd - destination));
-        destination += n;
         packet_ = std::move(packet);
     }
 
+    if (EXO_UNLIKELY(!exo::shouldRun()))
+        return paComplete;
     return paContinue;
 }
 
