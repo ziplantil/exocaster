@@ -227,6 +227,9 @@ void exo::OggFlacEncoder::startTrack(const exo::Metadata& metadata) {
     }
 
     init_ = true;
+#if EXO_OGGFLAC_SAMPLES_HACK
+    lastGranulePos_ = 0;
+#endif
 }
 
 template <typename T> struct false_ : std::false_type {};
@@ -345,12 +348,12 @@ void exo::OggFlacEncoder::pcmBlock(std::size_t frameCount,
 void exo::OggFlacEncoder::endTrack() {
     if (!init_)
         return;
-    if (!FLAC__stream_encoder_finish(encoder_.get()))
-        EXO_LOG("FLAC__stream_encoder_finish returned false");
-    init_ = false;
 #if EXO_OGGFLAC_SAMPLES_HACK
     lastGranulePos_ = 0;
 #endif
+    if (!FLAC__stream_encoder_finish(encoder_.get()))
+        EXO_LOG("FLAC__stream_encoder_finish returned false");
+    init_ = false;
 }
 
 FLAC__StreamEncoderWriteStatus
@@ -371,7 +374,9 @@ exo::OggFlacEncoder::writeCallback(const FLAC__byte buffer[], std::size_t bytes,
         // little-endian unsigned 64-bit integer at offset 6 in page data
         for (unsigned i = 0; i < 8; ++i)
             granulePos |= static_cast<std::uint64_t>(buffer[6 + i]) << (i << 3);
-        samples = static_cast<std::uint32_t>(granulePos - lastGranulePos_);
+        /* If the old granule position is larger, just ignore it */
+        if (granulePos >= lastGranulePos_)
+            samples = static_cast<std::uint32_t>(granulePos - lastGranulePos_);
         lastGranulePos_ = granulePos;
     }
 #endif

@@ -835,6 +835,10 @@ void LavcDecodeJob::calculateGain_() {
 
 int LavcDecodeJob::processResampledFrame_(
     std::shared_ptr<exo::PcmSplitter>& sink, const AVFrame* frame) {
+    // no samples, nothing to process
+    if (frame->nb_samples <= 0)
+        return 0;
+
     int size = av_samples_get_buffer_size(nullptr, outChLayout_.nb_channels,
                                           frame->nb_samples, outSampleFmt_, 1);
     if (EXO_UNLIKELY(size < 0)) {
