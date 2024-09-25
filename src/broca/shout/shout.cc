@@ -192,9 +192,11 @@ static bool shoutTrySend(shout_t* shout, const exo::byte* buffer, std::size_t n,
         case SHOUTERR_SOCKET:
             continue;
         default:
-            return false;
+            goto fail;
         }
     }
+fail:
+    EXO_SHOUT_ERROR("shout_send", shout);
     return false;
 }
 
@@ -260,14 +262,17 @@ void exo::ShoutBroca::runImpl() {
     bool quitting = false;
     exo::byte buffer[exo::BaseBroca::DEFAULT_BROCA_BUFFER];
     auto shout = shout_.get();
+    long openTime = 1;
 
     while (EXO_LIKELY(exo::shouldRun())) {
         err = shout_open(shout);
         if (err != SHOUTERR_SUCCESS) {
             EXO_SHOUT_ERROR("shout_open", shout);
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            std::this_thread::sleep_for(std::chrono::seconds(openTime));
+            openTime = std::min(openTime * 2, 60L);
             continue;
         }
+        openTime = 1;
 
         if (selfSync_)
             syncClock_.reset();

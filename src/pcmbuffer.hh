@@ -82,6 +82,7 @@ class PcmBuffer {
     std::uint_least64_t marginUs_;
     std::uint_least32_t skipFactor_;
     bool firstPcm_{true};
+    unsigned overruns_{0};
 
     std::timed_mutex mutex_;
     std::condition_variable_any hasPcm_;

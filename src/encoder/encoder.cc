@@ -159,7 +159,8 @@ void BaseEncoder::run() {
                 std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0)
                     .count();
             if (waitMs >= lastWaitMs * 2) {
-                EXO_LOG("buffer underrun? waited %u ms", waitMs);
+                EXO_LOG("buffer underrun? waited %u ms. adjust configuration!",
+                        waitMs);
                 lastWaitMs = waitMs;
             } else if (waitMs * 2 < lastWaitMs) {
                 lastWaitMs++;

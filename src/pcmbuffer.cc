@@ -28,6 +28,7 @@ DEALINGS IN THE SOFTWARE.
 
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <ratio>
 #include <thread>
 #include <utility>
@@ -143,9 +144,31 @@ void PcmBuffer::writePcm(std::span<const exo::byte> data) {
 
         if (written < data.size() && exo::shouldRun()) {
             auto waited = std::chrono::steady_clock::now() - timeBefore;
-            EXO_LOG("buffer overrun: %zu < %zu, waited %0.3f ms", written,
-                    data.size(),
-                    std::chrono::duration<double, std::milli>(waited).count());
+            // don't spam overrun messages if they keep happening
+
+            constexpr std::size_t OVERRUNS_INCREMENT = 4;
+            constexpr std::size_t OVERRUNS_PRINT_THRESH =
+                OVERRUNS_INCREMENT * 5;
+            constexpr std::size_t OVERRUNS_MAX = 2 * OVERRUNS_PRINT_THRESH;
+
+            if (overruns_ < OVERRUNS_PRINT_THRESH) {
+                EXO_LOG(
+                    "buffer overrun: %zu < %zu, waited %0.3f ms (encoder#%zu)",
+                    written, data.size(),
+                    std::chrono::duration<double, std::milli>(waited).count(),
+                    subindex_);
+                overruns_ += OVERRUNS_INCREMENT;
+            } else if (overruns_ < OVERRUNS_MAX) {
+                overruns_ += OVERRUNS_INCREMENT;
+                if (overruns_ >= OVERRUNS_PRINT_THRESH) {
+                    EXO_LOG(
+                        "not printing further buffer overruns from encoder#%zu "
+                        "unless they stop",
+                        subindex_);
+                }
+            }
+        } else if (overruns_) {
+            --overruns_;
         }
     } else {
         pcm_.writeFull(data.begin(), data.size());
