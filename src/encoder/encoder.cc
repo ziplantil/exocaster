@@ -139,16 +139,16 @@ void BaseEncoder::run() {
             source_->readTrackChange(barrierHolder_.pointer());
         if (maybeTrackChange.has_value()) {
             auto& trackChange = *maybeTrackChange;
-            if (track)
+            if (std::exchange(track, true))
                 endTrack();
             auto commandStr = exo::writePacketCommand(trackChange.command);
             packet(PacketFlags::OriginalCommandPacket, 0,
                    {reinterpret_cast<const exo::byte*>(commandStr.data()),
                     commandStr.size()});
+            commandStr.clear();
             startTrack(*trackChange.metadata);
-            startOfTrack_ = true;
-            track = true;
             maybeTrackChange.reset();
+            startOfTrack_ = true;
         }
 
         auto t0 = std::chrono::steady_clock::now();
