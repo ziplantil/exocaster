@@ -4,7 +4,7 @@ resampler/resampler.hh -- multi-channel resampler
 
 MIT License
 
-Copyright (c) 2024 ziplantil
+Copyright (c) 2024-2026 ziplantil
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the "Software"),
@@ -267,8 +267,8 @@ class MultiChannelResamplerImpl : public BaseMultiChannelResampler {
         auto inFrameCount = src.size() / stride;
         auto outFrameSpace = dst.size() / stride;
 
-        in_.reserve(inFrameCount);
-        out_.reserve(outFrameSpace);
+        in_.resize(inFrameCount);
+        out_.resize(outFrameSpace);
 
         std::size_t inFrames = 0;
         std::size_t outFrames = outFrameSpace;
@@ -366,7 +366,7 @@ class MultiChannelResamplerImpl : public BaseMultiChannelResampler {
 
         auto stride = channels_;
         auto outFrameSpace = dst.size() / stride;
-        out_.reserve(outFrameSpace);
+        out_.resize(outFrameSpace);
 
         std::size_t outFrames = outFrameSpace;
         std::size_t channel = 0;

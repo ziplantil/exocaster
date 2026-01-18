@@ -4,7 +4,7 @@ version.hh -- version
 
 MIT License
 
-Copyright (c) 2024 ziplantil
+Copyright (c) 2024-2026 ziplantil
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the "Software"),
@@ -31,7 +31,7 @@ DEALINGS IN THE SOFTWARE.
 
 namespace exo {
 
-#define EXO_VERSION "0.7.5"
+#define EXO_VERSION "0.7.6"
 
 } // namespace exo
 

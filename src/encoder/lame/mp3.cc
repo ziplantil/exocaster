@@ -4,7 +4,7 @@ encoder/lame/mp3.cc -- MP3 encoder using LAME
 
 MIT License
 
-Copyright (c) 2024 ziplantil
+Copyright (c) 2024-2026 ziplantil
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the "Software"),
@@ -83,7 +83,7 @@ Mp3Encoder::Mp3Encoder(const exo::ConfigObject& config,
         EXO_UNREACHABLE;
         throw std::runtime_error("mp3 encoder: unsupported channel layout");
     }
-    buffer_.reserve(7200);
+    buffer_.resize(7200);
 }
 
 exo::StreamFormat Mp3Encoder::streamFormat() const noexcept {
@@ -212,7 +212,7 @@ void Mp3Encoder::pcmBlock(std::size_t frameCount,
     alignas(std::uintmax_t)
         exo::byte alignedBuffer[fitFrames * exo::MAX_BYTES_PER_FRAME] = {0};
     const auto pcmFormat = pcmFormat_;
-    buffer_.reserve(7200 + (fitFrames * 5) / 4);
+    buffer_.resize(7200 + (fitFrames * 5) / 4);
 
     while (count > 0) {
         std::size_t frames = std::min(count, fitFrames);
@@ -245,7 +245,7 @@ void Mp3Encoder::pcmBlock(std::size_t frameCount,
 
 void Mp3Encoder::endTrack() {
     auto lame = lame_.get();
-    buffer_.reserve(7200);
+    buffer_.resize(7200);
     for (;;) {
         int ret = lame_encode_flush(lame, buffer_.data(), buffer_.capacity());
         if (ret < 0) {

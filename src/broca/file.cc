@@ -4,7 +4,7 @@ broca/file.cc -- file output broca
 
 MIT License
 
-Copyright (c) 2024 ziplantil
+Copyright (c) 2024-2026 ziplantil
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the "Software"),
@@ -67,7 +67,7 @@ FileBroca::FileBroca(const exo::ConfigObject& config,
             flags |= std::ios::app;
     }
 
-    file_.exceptions();
+    file_.exceptions(std::ios::goodbit);
     file_.open(path, flags);
     if (file_.fail() || file_.bad())
         throw std::system_error(errno, std::generic_category(),

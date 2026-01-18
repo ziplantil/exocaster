@@ -5,6 +5,9 @@ Type: `file`
 
 Saves an encoded bitstream into a file.
 
+The file may also be e.g. the standard output (`/dev/stdout`)
+or a named pipe (FIFO).
+
 ## Configuration
 
 Either a JSON string or object. If an object, the fields are:

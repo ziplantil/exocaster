@@ -4,7 +4,7 @@ encoder/libflac/oggflac.hh -- Ogg FLAC encoder using libFLAC
 
 MIT License
 
-Copyright (c) 2024 ziplantil
+Copyright (c) 2024-2026 ziplantil
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the "Software"),
@@ -50,11 +50,17 @@ extern "C" {
 #include <FLAC/stream_encoder.h>
 }
 
-/* libFLAC write callback samples is broken for Ogg FLAC.
+/* libFLAC write callback samples is broken for Ogg FLAC
+   (until FLAC 1.5.0).
     <https://github.com/xiph/flac/issues/661>
     <https://github.com/xiph/flac/pull/743> */
 #ifndef EXO_OGGFLAC_SAMPLES_HACK
+#if FLAC_API_VERSION_CURRENT < 14
+/* FLAC_API_VERSION_CURRENT=14 is FLAC 1.5.0 */
+#define EXO_OGGFLAC_SAMPLES_HACK 1
+#else
 #define EXO_OGGFLAC_SAMPLES_HACK 0
+#endif
 #endif
 
 namespace exo {

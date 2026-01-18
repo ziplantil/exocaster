@@ -4,7 +4,7 @@ encoder/libflac/oggflac.cc -- Ogg FLAC encoder using libFLAC
 
 MIT License
 
-Copyright (c) 2024 ziplantil
+Copyright (c) 2024-2026 ziplantil
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the "Software"),
@@ -248,9 +248,10 @@ static exo::PcmFormat_t<Fdst> convertSampleToSigned_(const exo::byte*& src) {
         return exo::convertSampleIntToInt_<Fdst, Fsrc>(value);
 
     } else if constexpr (exo::IsSampleFloatingPoint_v<Fsrc>) {
-        // add random noise and floor sum to dither
+        // Add triangular noise and round sum to dither
         static thread_local exo::RandomFloatGenerator<Tsrc> ditherer;
-        return exo::convertSampleFromFloat_<Fdst, false>(value, ditherer());
+        return exo::convertSampleFromFloat_<Fdst, true>(value, ditherer() -
+                                                                   ditherer());
 
     } else {
         static_assert(false_<Tsrc>::value);
@@ -362,7 +363,8 @@ exo::OggFlacEncoder::writeCallback(const FLAC__byte buffer[], std::size_t bytes,
                                    std::uint32_t samples,
                                    std::uint32_t currentFrame) {
 #if EXO_OGGFLAC_SAMPLES_HACK
-    /* libFLAC write callback samples is broken for Ogg FLAC.
+    /* libFLAC write callback samples is broken for Ogg FLAC
+       (until FLAC 1.5.0).
        <https://github.com/xiph/flac/issues/661>
        <https://github.com/xiph/flac/pull/743>
        read granule position from page manually and use it to compute

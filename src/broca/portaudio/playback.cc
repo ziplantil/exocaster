@@ -4,7 +4,7 @@ broca/portaudio/playback.cc -- broca for playback through portaudio
 
 MIT License
 
-Copyright (c) 2024 ziplantil
+Copyright (c) 2024-2026 ziplantil
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the "Software"),

@@ -4,7 +4,7 @@ decoder/libavcodec/lavc.cc -- libavcodec powered decoder
 
 MIT License
 
-Copyright (c) 2024 ziplantil
+Copyright (c) 2024-2026 ziplantil
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the "Software"),
@@ -53,6 +53,7 @@ DEALINGS IN THE SOFTWARE.
 #include "metadata.hh"
 #include "pcmbuffer.hh"
 #include "pcmtypes.hh"
+#include "random.hh"
 #include "server.hh"
 #include "util.hh"
 
@@ -651,11 +652,21 @@ using GainType =
     std::conditional_t<exo::IsSampleFloatingPoint_v<fmt>,
                        decltype(exo::LavcGain::f), decltype(exo::LavcGain::i)>;
 
+template <std::signed_integral T, unsigned B> T roundAndDitherFix_(T value) {
+    static thread_local exo::RandomBitIntGenerator<T, B> ditherer;
+    if constexpr (B == 0)
+        return value;
+    // Use a triangular PDF for dithering
+    auto dithered = value + (value ? ditherer() - ditherer() : 0);
+    return (dithered + (T(1) << (B - 1))) >> B;
+}
+
 template <std::signed_integral T>
 T applyGainToSampleSigned_(T sample, exo::GainFixed gain) {
     using Wide = exo::WiderType_t<T>;
     // apply gain through integer (fixed-point) multiplication
-    auto x = (static_cast<Wide>(sample) * gain) >> REPLAYGAIN_FRAC_BITS;
+    auto x = roundAndDitherFix_<Wide, REPLAYGAIN_FRAC_BITS>(
+        static_cast<Wide>(sample) * gain);
     return static_cast<T>(
         std::clamp(x, static_cast<Wide>(std::numeric_limits<T>::min()),
                    static_cast<Wide>(std::numeric_limits<T>::max())));
