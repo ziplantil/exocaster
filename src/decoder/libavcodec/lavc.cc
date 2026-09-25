@@ -211,6 +211,7 @@ LavcDecoder::createJob(const exo::ConfigObject& request,
 
     std::string filePath;
     exo::Metadata addMetadata;
+    bool dropMetadata = false;
 
     if (cfg::isObject(request)) {
         if (!cfg::hasString(request, "file")) {
@@ -220,18 +221,24 @@ LavcDecoder::createJob(const exo::ConfigObject& request,
         }
         filePath = cfg::namedString(request, "file");
 
-        if (params_.addMetadataEnabled &&
-            cfg::hasArray(request, "addMetadata")) {
-            auto pairs = cfg::key(request, "addMetadata");
-            for (const auto& pair : cfg::iterateArray(pairs)) {
-                if (cfg::isArray(pair) && cfg::arrayLength(pair) == 2) {
-                    const auto& pairKey = cfg::index(pair, 0);
-                    const auto& pairValue = cfg::index(pair, 1);
-                    if (cfg::isString(pairKey) && cfg::isString(pairValue)) {
-                        addMetadata.push_back({cfg::getString(pairKey),
-                                               cfg::getString(pairValue)});
+        if (params_.addMetadataEnabled) {
+            if (cfg::hasArray(request, "addMetadata")) {
+                auto pairs = cfg::key(request, "addMetadata");
+                for (const auto& pair : cfg::iterateArray(pairs)) {
+                    if (cfg::isArray(pair) && cfg::arrayLength(pair) == 2) {
+                        const auto& pairKey = cfg::index(pair, 0);
+                        const auto& pairValue = cfg::index(pair, 1);
+                        if (cfg::isString(pairKey) &&
+                            cfg::isString(pairValue)) {
+                            addMetadata.push_back({cfg::getString(pairKey),
+                                                   cfg::getString(pairValue)});
+                        }
                     }
                 }
+            }
+            if (cfg::hasBoolean(request, "dropMetadata")) {
+                dropMetadata =
+                    cfg::namedBoolean(request, "dropMetadata", false);
             }
         }
     } else {
@@ -240,17 +247,18 @@ LavcDecoder::createJob(const exo::ConfigObject& request,
 
     return {std::make_unique<exo::LavcDecodeJob>(
         sink_, pcmFormat_, std::move(command), filePath, std::move(addMetadata),
-        params_)};
+        dropMetadata, params_)};
 }
 
 LavcDecodeJob::LavcDecodeJob(std::shared_ptr<exo::PcmSplitter> sink,
                              exo::PcmFormat pcmFormat,
                              std::shared_ptr<exo::ConfigObject> command,
                              const std::string& filePath,
-                             exo::Metadata&& addMetadata,
+                             exo::Metadata&& addMetadata, bool dropMetadata,
                              const exo::LavcDecodeParams& params)
     : BaseDecodeJob(sink, pcmFormat, command), filePath_(filePath),
-      addMetadata_(std::move(addMetadata)), params_(params) {
+      addMetadata_(std::move(addMetadata)), dropMetadata_(dropMetadata),
+      params_(params) {
     decltype(AV_CH_LAYOUT_MONO) formatChannels;
 
     switch (pcmFormat_.channels) {
@@ -362,6 +370,8 @@ void LavcDecodeJob::init() {
     if (params_.metadataBlockPicture)
         scanForAlbumArt_();
 
+    if (dropMetadata_)
+        metadata_.clear();
     for (auto&& pair : addMetadata_)
         metadata_.push_back(std::move(pair));
     addMetadata_.clear();

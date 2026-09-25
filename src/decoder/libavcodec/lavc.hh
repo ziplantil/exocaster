@@ -177,6 +177,7 @@ struct LavSwrContext : public PointerSlot<LavSwrContext, SwrContext> {
 class LavcDecodeJob : public exo::BaseDecodeJob {
     std::string filePath_;
     exo::Metadata addMetadata_;
+    bool dropMetadata_{false};
     exo::LavcDecodeParams params_;
     bool canPlay_{false};
     exo::LavPacket packet_;
@@ -222,7 +223,7 @@ class LavcDecodeJob : public exo::BaseDecodeJob {
                   exo::PcmFormat pcmFormat,
                   std::shared_ptr<exo::ConfigObject> command,
                   const std::string& filePath, exo::Metadata&& addMetadata,
-                  const exo::LavcDecodeParams& params);
+                  bool dropMetadata, const exo::LavcDecodeParams& params);
     EXO_DEFAULT_NONCOPYABLE_DEFAULT_DESTRUCTOR(LavcDecodeJob)
 
     void init();
